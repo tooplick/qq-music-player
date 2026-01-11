@@ -3,7 +3,6 @@
  * Handles decryption of QRC lyrics
  */
 
-import { qrc_decrypt } from '../tripledes.js';
 
 export async function onRequest(context) {
     const { request } = context;
@@ -55,30 +54,8 @@ export async function onRequest(context) {
 
         const responseData = await response.json();
 
-        // Decrypt Logic
-        try {
-            // Find lyric data
-            // Typical key structure: music.musichallSong.PlayLyricInfo.GetPlayLyricInfo
-            let dataObj = null;
-            if (responseData['music.musichallSong.PlayLyricInfo.GetPlayLyricInfo']) {
-                dataObj = responseData['music.musichallSong.PlayLyricInfo.GetPlayLyricInfo'].data;
-            }
-
-            if (dataObj) {
-                if (dataObj.lyric) {
-                    dataObj.lyric = await qrc_decrypt(dataObj.lyric);
-                }
-                if (dataObj.trans) {
-                    dataObj.trans = await qrc_decrypt(dataObj.trans);
-                }
-                if (dataObj.roma) {
-                    dataObj.roma = await qrc_decrypt(dataObj.roma);
-                }
-            }
-        } catch (decryptErr) {
-            console.error("Decryption failed:", decryptErr);
-            // Continue without decryption if failed (or partial)
-        }
+        // Decrypt Logic removed - moved to frontend to debug
+        // Just return raw encrypted data
 
         // Return modified response
         return new Response(JSON.stringify(responseData), {
