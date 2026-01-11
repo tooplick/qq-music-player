@@ -488,10 +488,11 @@ class PlayerManager {
 
             // Check if valid result
             if (!lyrics || (!lyrics.lyric && !lyrics.trans && !lyrics.roma)) {
-                // If failed and first try, retry once
-                if (retryCount < 1) {
-                    console.warn('Lyrics empty, retrying once...');
-                    setTimeout(() => this.loadLyrics(mid, retryCount + 1), 1000);
+                // Retry up to 3 times
+                if (retryCount < 3) {
+                    const delay = (retryCount + 1) * 1000;
+                    console.warn(`Lyrics empty, retrying (${retryCount + 1}/3) in ${delay}ms...`);
+                    setTimeout(() => this.loadLyrics(mid, retryCount + 1), delay);
                     return;
                 }
             }
@@ -507,9 +508,10 @@ class PlayerManager {
             }
         } catch (error) {
             console.error('Load lyrics failed:', error);
-            if (retryCount < 1) {
-                console.log('Retrying load lyrics...');
-                setTimeout(() => this.loadLyrics(mid, retryCount + 1), 1500);
+            if (retryCount < 3) {
+                const delay = (retryCount + 1) * 1000;
+                console.log(`Retrying load lyrics error (${retryCount + 1}/3) in ${delay}ms...`);
+                setTimeout(() => this.loadLyrics(mid, retryCount + 1), delay);
             }
         }
     }
