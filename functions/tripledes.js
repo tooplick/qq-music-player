@@ -422,31 +422,52 @@ function tripledes_crypt(data, key) {
 // Zlib implementation for browser/worker environment (pako is too heavy, simple inflate needed)
 // But Cloudflare Workers runtime implies standard web APIs.
 // Use DecompressionStream if available (supported in Workers)
+// Zlib implementation for browser/worker environment
+// DecompressionStream('deflate') typically handles Raw Deflate (RFC 1951).
+// Python's zlib.decompress expects Zlib (RFC 1950), which has a 2-byte header and checksum.
+// We may need to strip the header for DecompressionStream to work.
 async function decompress(data) {
+    const tryDecompress = async (inputData) => {
+        try {
+            const ds = new DecompressionStream('deflate');
+            const writer = ds.writable.getWriter();
+            writer.write(inputData);
+            writer.close();
+            const output = [];
+            const reader = ds.readable.getReader();
+            let totalSize = 0;
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                output.push(value);
+                totalSize += value.length;
+            }
+            const concatenated = new Uint8Array(totalSize);
+            let offset = 0;
+            for (const array of output) {
+                concatenated.set(array, offset);
+                offset += array.length;
+            }
+            return new TextDecoder().decode(concatenated);
+        } catch (e) {
+            throw e;
+        }
+    };
+
     try {
-        // data is Uint8Array
-        const ds = new DecompressionStream('deflate');
-        const writer = ds.writable.getWriter();
-        writer.write(data);
-        writer.close();
-        const output = [];
-        const reader = ds.readable.getReader();
-        let totalSize = 0;
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            output.push(value);
-            totalSize += value.length;
-        }
-        const concatenated = new Uint8Array(totalSize);
-        let offset = 0;
-        for (const array of output) {
-            concatenated.set(array, offset);
-            offset += array.length;
-        }
-        return new TextDecoder().decode(concatenated);
+        // First try as is (in case implementation supports zlib wrapped)
+        return await tryDecompress(data);
     } catch (e) {
-        console.error('Decompression failed:', e);
+        // If failed, try stripping 2-byte zlib header (usually 0x78 0x9C, 0x78 0x01, or 0x78 0xDA)
+        // Zlib header is 2 bytes.
+        if (data.length > 2) {
+            try {
+                return await tryDecompress(data.slice(2));
+            } catch (e2) {
+                console.error('Decompression failed (raw & stripped):', e2);
+                return '';
+            }
+        }
         return '';
     }
 }
