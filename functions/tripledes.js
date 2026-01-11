@@ -484,41 +484,38 @@ async function decompress(data) {
             const writer = ds.writable.getWriter();
             writer.write(inputData);
             writer.close();
-            const output = [];
-            const reader = ds.readable.getReader();
-            let totalSize = 0;
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                output.push(value);
-                totalSize += value.length;
-            }
-            const concatenated = new Uint8Array(totalSize);
-            let offset = 0;
-            for (const array of output) {
-                concatenated.set(array, offset);
-                offset += array.length;
-            }
-            return new TextDecoder().decode(concatenated);
+            const response = new Response(ds.readable);
+            const buffer = await response.arrayBuffer();
+            return new TextDecoder().decode(buffer);
         } catch (e) {
             throw e;
         }
     };
 
     try {
-        // First try as is (in case implementation supports zlib wrapped)
+        // 1. Try raw
         return await tryDecompress(data);
     } catch (e) {
-        // If failed, try stripping 2-byte zlib header (usually 0x78 0x9C, 0x78 0x01, or 0x78 0xDA)
-        // Zlib header is 2 bytes.
+        // 2. Try stripping Zlib header (2 bytes)
+        // Note: Zlib also has a 4-byte Adler-32 checksum at the end. 
+        // Some implementations might choke on it if validating raw deflate.
         if (data.length > 2) {
             try {
+                // Try stripping just header
                 return await tryDecompress(data.slice(2));
             } catch (e2) {
-                console.error('Decompression failed (raw & stripped):', e2);
-                return '';
+                // 3. Try stripping Header (2 bytes) AND Trailer (4 bytes)
+                if (data.length > 6) {
+                    try {
+                        return await tryDecompress(data.slice(2, -4));
+                    } catch (e3) {
+                        // console.error('Decompression failed (stripped H+T):', e3);
+                    }
+                }
             }
         }
+
+        console.error('All decompression attempts failed');
         return '';
     }
 }
@@ -527,7 +524,19 @@ async function decompress(data) {
 export async function qrc_decrypt(encrypted_qrc_hex) {
     if (!encrypted_qrc_hex) return "";
 
+    // 1. Check if it's already plain text (LRC format often starts with [)
+    // Hex strings shouldn't contain brackets usually (unless mapped, but valid hex is 0-9a-f)
+    if (encrypted_qrc_hex.startsWith('[') || encrypted_qrc_hex.includes('[00:')) {
+        return encrypted_qrc_hex;
+    }
+
     try {
+        // Verify it is hex
+        if (!/^[0-9a-fA-F]+$/.test(encrypted_qrc_hex)) {
+            // Not hex, return as is (maybe it's some other format)
+            return encrypted_qrc_hex;
+        }
+
         const encrypted_qrc = new Uint8Array(encrypted_qrc_hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
 
         // Prepare Output Buffer
@@ -537,7 +546,6 @@ export async function qrc_decrypt(encrypted_qrc_hex) {
         const schedule = tripledes_key_setup(keyBytes, DECRYPT);
 
         // Process in 8-byte chunks
-        // Limit total length to multiple of 8 to avoid bounds error
         const len = encrypted_qrc.length - (encrypted_qrc.length % 8);
 
         for (let i = 0; i < len; i += 8) {
@@ -545,12 +553,12 @@ export async function qrc_decrypt(encrypted_qrc_hex) {
         }
 
         // Decompress (zlib)
-        // Note: result might have padding? DES typically pads.
-        // But for Zlib we usually just feed it all.
         return await decompress(result);
 
     } catch (e) {
         console.error(`Decryption failed: ${e}`);
+        // Fallback: return empty or original? 
+        // If decryption fails, original is garbage hex, better return empty.
         return "";
     }
 }
