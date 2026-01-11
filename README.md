@@ -80,7 +80,7 @@ wrangler pages dev .
 ## 版本历史
 
 ### v1.0.0 - Legacy
- -初始版本
+ - 初始版本
 
 ## 免责声明
 
