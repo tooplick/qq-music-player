@@ -1,93 +1,72 @@
-# QQ Music Web - 纯前端播放器
+# QQ Music Web Player - Serverless Edition
 
-纯前端实现的 QQ 音乐播放器，可静态托管。
+QQ 音乐 Web 播放器的现代重构版本，专为 **Cloudflare Pages** 打造的纯前端 + Serverless 架构。
 
 ## 功能特性
 
-- ✅ 歌曲搜索
-- ✅ 在线播放（FLAC/320K/128K）
-- ✅ 同步歌词显示
-- ✅ 播放列表管理
-- ✅ 多种播放模式（顺序/单曲循环/随机）
-- ✅ Service Worker 离线缓存
+- ✅ **纯前端架构**：静态资源托管在 Cloudflare Pages。
+- ✅ **Serverless 后端**：使用 Cloudflare Functions (`/functions`) 处理 API 代理和请求签名。
+- ✅ **隐私安全**：通过 Cloudflare 代理请求，隐藏真实 IP，支持 `no-referrer` 绕过防盗链。
+- ✅ **PWA 支持**：Service Worker 离线缓存。
 
-## 技术栈
+## 部署 (Cloudflare Pages)
 
-- **纯前端**: HTML + CSS + JavaScript ES6 Modules
-- **无需后端**: 直接调用 QQ 音乐 API
-- **静态托管**: 可部署到任何静态托管服务
+本项目已针对 Cloudflare Pages 优化，开箱即用。
 
-## 本地运行
+### 1. Fork 本仓库
+将本项目 Fork 到你的 GitHub 账号。
 
-### 方法 1: Python 环境（推荐）
+### 2. 在 Cloudflare 面板创建项目
+1. 登录 Cloudflare Dashboard。
+2. 进入 **Workers & Pages** -> **Create application** -> **Pages** -> **Connect to Git**。
+3. 选择刚才 Fork 的仓库。
 
-需同时运行 HTTP 服务器和 CORS 代理：
+### 3. 配置构建设置
+- **Framework preset**: `None`
+- **Build command**: `(空)` (不需要构建命令)
+- **Output directory**: `.` (根目录)
 
+### 4. 环境变量
+目前不需要额外的环境变量。API 代理和加解密逻辑都已内置。
+
+### 5. 部署
+点击 **Save and Deploy**。稍等片刻，你的播放器就上线了！
+
+## 本地开发
+
+虽然这是一个 Serverless 项目，但你可以使用 `wrangler` 在本地完美模拟。
+
+### 前置要求
+- Node.js (推荐 v18+)
+- Wrangler CLI (`npm install -g wrangler`)
+
+### 启动开发服务器
 ```bash
-# 终端 1: 启动前端服务器
-python -m http.server 8080
-
-# 终端 2: 启动 API 代理
-python cors_proxy.py
+npm install
+wrangler pages dev .
 ```
-
-访问 `http://localhost:8080`
-
-### 凭证管理
-
-访问 `http://localhost:8080/admin.html` 可以管理 QQ 音乐 API 凭证。凭证过期时应用会自动尝试刷新，也可以在此手动刷新。
-
-## 部署
-
-可部署到以下平台：
-
-- GitHub Pages
-- Vercel
-- Netlify
-
-**注意**: 生产环境部署需要配置真正的 CORS 代理（如 Nginx 反代或使用 Cloudflare Workers），并在 `js/api/request.js` 中更新 `encEndpoint`。
-目前的 `cors_proxy.py` 仅供本地开发测试使用。
-
-## 注意事项
-
-### CORS 问题
-
-QQ 音乐 API (`u.y.qq.com`) 可能存在 CORS 限制。如果遇到跨域问题：
-
-1. **浏览器扩展**: 使用 CORS Unblock 等浏览器扩展（仅开发用）
-2. **CORS 代理**: 使用公共 CORS 代理服务（不推荐生产环境）
-3. **自建代理**: 部署简单的 CORS 代理服务器
-
-### 凭证更新
-
-凭证默认保存在 `localStorage`。如需更新凭证，编辑 `js/api/credential.js` 中的 `DEFAULT_CREDENTIAL`。
+这将在本地启动一个开发服务器（通常是 `http://localhost:8788`），同时模拟 Cloudflare Functions。
 
 ## 项目结构
 
 ```
-frontend/
-├── index.html              # 主页
-├── css/
-│   └── style.css           # 样式
+.
+├── functions/              # Cloudflare Functions (后端逻辑)
+│   ├── api/
+│   │   ├── index.js        # 通用 API 代理
+│   │   └── lyric_proxy.js  # 歌词请求代理
+│   └── tripledes.js        # (已弃用) 旧版后端解密逻辑，现已移至前端
 ├── js/
-│   ├── api/                # API 模块
-│   │   ├── sign.js         # 签名算法
-│   │   ├── credential.js   # 凭证管理
-│   │   ├── request.js      # 请求封装
-│   │   ├── search.js       # 搜索 API
-│   │   ├── song.js         # 歌曲 URL API
-│   │   ├── lyric.js        # 歌词 API
-│   │   ├── login.js        # 凭证刷新
-│   │   └── index.js        # API 入口
-│   └── app.js              # 主应用
-├── images/
-│   └── favicon.png
-└── sw.js                   # Service Worker
+│   ├── api/                # 前端 API 封装
+│   ├── utils/
+│   │   └── tripledes.js    # 核心解密逻辑 (TripleDES + Zlib)
+│   └── app.js              # 主应用逻辑
+├── index.html              # 主入口
+└── worker.js               # Service Worker
 ```
 
-## 许可证
-
-继承自原项目 GPL-3.0
+### CORS 处理
+所有对 `u.y.qq.com` 和 `c.y.qq.com` 的请求都通过 `/functions/api/index.js` 转发，自动处理 CORS 头和 Cookie 转发。
 
 ## 免责声明
 
