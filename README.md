@@ -9,7 +9,6 @@
 - ✅ 同步歌词显示
 - ✅ 播放列表管理
 - ✅ 多种播放模式（顺序/单曲循环/随机）
-- ✅ 凭证自动刷新
 - ✅ Service Worker 离线缓存
 
 ## 技术栈
@@ -26,11 +25,9 @@
 
 ```bash
 # 终端 1: 启动前端服务器
-cd frontend
 python -m http.server 8080
 
 # 终端 2: 启动 API 代理
-cd frontend
 python cors_proxy.py
 ```
 
