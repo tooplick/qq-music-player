@@ -1,29 +1,10 @@
 /**
  * QQ Music Credential Management
+ * 优先从后端 D1 数据库加载凭证，localStorage 作为缓存
  */
 
 const CREDENTIAL_KEY = 'qqmusic_credential';
-
-/**
- * Default credential from user
- */
-const DEFAULT_CREDENTIAL = {
-    openid: "42AE3A348004B73125D733A21B11EE23",
-    refresh_token: "",
-    access_token: "6A303FEB150395D49BF82D8221755E0D",
-    expired_at: 1773141595,
-    musicid: 896389745,
-    musickey: "Q_H_L_63k3NfxfafaMQiMKUr9MXLMR_PjPhQkXw-1f9DX_DQ14buWft3H1ysjiMIoAMtiyH0Aphv2xhcCnS4iDQsc5LaDUglCahhGcl5YRihZiPtwOgWr3jqg5ungn_LRVWEa81mUfsuaFyHTQDa588s_DmTPSf",
-    unionid: "",
-    str_musicid: "896389745",
-    refresh_key: "64aN2V8uMT35hTAbHsH2JLfpcpDONgn-tHswQRXSqqOOwsQfc-t1A8yy64Cq8rFzdpXDDit_yM6xuukXj1KeTQKYy4aiXsSMS1Ys580eN9M0xk-NABDVhL4D0v1YW-X_-OzyNYic_tyBJkNeIRsPIhT8Bp",
-    encrypt_uin: "NeEsoicq7ivk",
-    login_type: 2,
-    extra_fields: {
-        musickeyCreateTime: 1768039958,
-        keyExpiresIn: 259200
-    }
-};
+const CREDENTIAL_API = '/api/credential';
 
 /**
  * Credential class for QQ Music API
@@ -88,7 +69,7 @@ export class Credential {
     }
 
     /**
-     * Save credential to localStorage
+     * Save credential to localStorage (cache)
      */
     save() {
         try {
@@ -101,22 +82,74 @@ export class Credential {
     }
 
     /**
-     * Load credential from localStorage or use default
+     * Load credential from localStorage cache
      */
-    static load() {
+    static loadFromCache() {
         try {
             const saved = localStorage.getItem(CREDENTIAL_KEY);
             if (saved) {
                 return new Credential(JSON.parse(saved));
             }
         } catch (e) {
-            console.warn('Failed to load credential from storage:', e);
+            console.warn('Failed to load credential from cache:', e);
         }
-        return new Credential(DEFAULT_CREDENTIAL);
+        return null;
     }
 
     /**
-     * Update credential with new data (e.g., after refresh)
+     * Load credential from server API
+     */
+    static async loadFromServer() {
+        try {
+            const response = await fetch(CREDENTIAL_API);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const data = await response.json();
+            if (data.credential) {
+                const cred = new Credential(data.credential);
+                cred.save(); // 缓存到 localStorage
+                return cred;
+            }
+        } catch (e) {
+            console.warn('Failed to load credential from server:', e);
+        }
+        return null;
+    }
+
+    /**
+     * Load credential: server first, then cache
+     */
+    static async load() {
+        // 优先从服务器加载
+        const serverCred = await Credential.loadFromServer();
+        if (serverCred && serverCred.isValid()) {
+            console.log('Credential loaded from server');
+            return serverCred;
+        }
+
+        // 服务器失败时从缓存加载
+        const cachedCred = Credential.loadFromCache();
+        if (cachedCred && cachedCred.isValid()) {
+            console.log('Credential loaded from cache');
+            return cachedCred;
+        }
+
+        // 都失败返回空凭证
+        console.warn('No valid credential found');
+        return new Credential();
+    }
+
+    /**
+     * Sync load for compatibility (uses cache only)
+     */
+    static loadSync() {
+        const cached = Credential.loadFromCache();
+        return cached || new Credential();
+    }
+
+    /**
+     * Update credential with new data
      */
     update(data) {
         Object.assign(this, data);
@@ -129,13 +162,36 @@ export class Credential {
 
 // Global credential instance
 let globalCredential = null;
+let credentialPromise = null;
 
 /**
- * Get or create global credential
+ * Get or create global credential (async, fetches from server)
+ */
+export async function getCredentialAsync() {
+    if (globalCredential && globalCredential.isValid()) {
+        return globalCredential;
+    }
+
+    if (!credentialPromise) {
+        credentialPromise = Credential.load().then(cred => {
+            globalCredential = cred;
+            credentialPromise = null;
+            return cred;
+        });
+    }
+
+    return credentialPromise;
+}
+
+/**
+ * Get global credential (sync, uses cache)
+ * For backward compatibility with existing code
  */
 export function getCredential() {
     if (!globalCredential) {
-        globalCredential = Credential.load();
+        globalCredential = Credential.loadSync();
+        // 后台异步刷新
+        getCredentialAsync().catch(console.error);
     }
     return globalCredential;
 }
@@ -149,4 +205,4 @@ export function updateCredential(data) {
     return cred;
 }
 
-export default { Credential, getCredential, updateCredential };
+export default { Credential, getCredential, getCredentialAsync, updateCredential };
