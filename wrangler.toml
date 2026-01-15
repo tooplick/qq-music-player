@@ -5,7 +5,7 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "qqmusic-credentials"
-database_id = "<YOUR_DATABASE_ID>"  # 请替换为实际的数据库 ID
+database_id = "78640b14-91d6-4090-a7d1-9568dcf2f0ff"
 
 # 定时刷新凭证 (每小时)
 [triggers]
