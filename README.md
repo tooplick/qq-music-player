@@ -7,6 +7,7 @@ QQ 音乐 Web 播放器的现代重构版本，专为 **Cloudflare Pages** 打�
 - ✅ **纯前端架构**：静态资源托管在 Cloudflare Pages
 - ✅ **Serverless 后端**：使用 Cloudflare Functions 处理 API 代理和请求签名
 - ✅ **D1 凭证存储**：凭证存储在 Cloudflare D1 数据库
+- ✅ **自动化凭证同步**：一键从外部 API 同步并更新凭证
 - ✅ **智能预加载**：自动预取下一首歌曲歌词，零延迟切换
 - ✅ **隐私安全**：通过 Cloudflare 代理请求，隐藏真实 IP
 - ✅ **PWA 支持**：Service Worker 离线缓存
@@ -37,25 +38,26 @@ QQ 音乐 Web 播放器的现代重构版本，专为 **Cloudflare Pages** 打�
    - Variable name: `DB`
    - D1 database: 选择 `qqmusic-credentials`
 
-### 5. 配置初始凭证
+### 5. 配置外部 API (Cloudflare Pages)
+
+如果使用 Git 自动构建部署，请务必在后台手动配置环境变量：
 
 1. 进入 **Settings** → **Environment variables**
-2. 添加变量 `INITIAL_CREDENTIAL`，值为凭证 JSON：
-
-```json
-{
-    "openid": "YOUR_OPENID",
-    "musicid": "YOUR_MUSICID",
-    "musickey": "YOUR_MUSICKEY",
-    "refresh_key": "YOUR_REFRESH_KEY",
-    "login_type": "2",
-    "extra_fields": "{'musickeyCreateTime': 0, 'keyExpiresIn': 259200}"
-}
-```
+2. 添加变量：
+   - Variable name: `EXTERNAL_API_URL`
+   - Value: `https://api.ygking.top` (或你自己的 API 服务地址)
 
 ### 6. 部署
 
-保存设置后触发重新部署。首次访问时会自动初始化数据库并导入凭证。
+保存设置后触发重新部署。
+
+## 凭证管理
+
+项目不再使用环境变量存储初始凭证，而是提供了可视化的管理页面。
+
+1. 访问 `/admin` (例如 `https://your-project.pages.dev/admin`)
+2. 页面会自动尝试从配置的 `EXTERNAL_API_URL` 获取凭证并存入数据库
+3. 如果成功，播放器即可正常使用
 
 ## 本地开发
 
@@ -65,6 +67,7 @@ npm install -g wrangler
 
 # 创建本地 D1 数据库
 wrangler d1 create qqmusic-credentials --local
+wrangler d1 execute qqmusic-credentials --local --file=./schema.sql # 如果有 sql 文件
 
 # 启动开发服务器
 wrangler pages dev .
@@ -77,6 +80,7 @@ wrangler pages dev .
 ```
 .
 ├── functions/              # Cloudflare Functions
+│   ├── admin.js            # 凭证管理页面
 │   └── api/
 │       ├── index.js        # API 代理
 │       ├── credential.js   # 凭证读取 API
@@ -89,24 +93,6 @@ wrangler pages dev .
 ├── index.html              # 应用入口
 └── sw.js                   # Service Worker
 ```
-
-## 凭证说明
-
-凭证自动刷新机制：
-- **存储**：凭证存储在 Cloudflare D1 数据库
-- **刷新**：Cron 每小时检查，剩余有效期 < 24 小时时自动刷新
-- **首次初始化**：从环境变量 `INITIAL_CREDENTIAL` 导入
-
-## 版本历史
-
-### v1.0.2
-- 新增 D1 数据库凭证存储
-
-### v1.0.1
-- 修复手机端返回键直接退出问题
-
-### v1.0.0
-- 初始版本
 
 ## 免责声明
 
