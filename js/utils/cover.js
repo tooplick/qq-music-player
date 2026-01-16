@@ -60,6 +60,8 @@ function checkCoverValid(url, timeout = 3000) {
  * @returns {Promise<string>} Valid cover URL or default cover
  */
 export async function getValidCoverUrl(song, size = 300) {
+    console.log('[Cover] getValidCoverUrl called with song:', song);
+
     // Validate size
     const validSizes = [150, 300, 500, 800];
     if (!validSizes.includes(size)) {
@@ -68,6 +70,7 @@ export async function getValidCoverUrl(song, size = 300) {
 
     // 1. Try album_mid first
     const albumMid = song?.album_mid || song?.album?.mid;
+    console.log('[Cover] album_mid:', albumMid);
     if (albumMid) {
         const url = getCoverUrlByAlbumMid(albumMid, size);
         console.log('[Cover] Trying album_mid:', albumMid, url);
