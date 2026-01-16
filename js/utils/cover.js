@@ -60,8 +60,6 @@ function checkCoverValid(url, timeout = 3000) {
  * @returns {Promise<string>} Valid cover URL or default cover
  */
 export async function getValidCoverUrl(song, size = 300) {
-    console.log('[Cover] getValidCoverUrl called with song:', song);
-
     // Validate size
     const validSizes = [150, 300, 500, 800];
     if (!validSizes.includes(size)) {
@@ -70,23 +68,16 @@ export async function getValidCoverUrl(song, size = 300) {
 
     // 1. Try album_mid first
     const albumMid = song?.album_mid || song?.album?.mid;
-    console.log('[Cover] album_mid:', albumMid);
     if (albumMid) {
         const url = getCoverUrlByAlbumMid(albumMid, size);
-        console.log('[Cover] Trying album_mid:', albumMid, url);
         if (await checkCoverValid(url)) {
-            console.log('[Cover] album_mid valid');
             return url;
         }
     }
 
     // 2. Try vs values
-    console.log('[Cover] song.vs:', song?.vs, 'keys:', Object.keys(song || {}));
     const vsValues = song?.vs || [];
-    console.log('[Cover] vsValues:', vsValues, 'length:', vsValues.length);
     if (Array.isArray(vsValues) && vsValues.length > 0) {
-        console.log('[Cover] Trying vs values:', vsValues.filter(v => v));
-
         // Filter and collect non-empty vs values
         const candidates = [];
 
@@ -105,16 +96,13 @@ export async function getValidCoverUrl(song, size = 300) {
         // Try each candidate
         for (const candidate of candidates) {
             const url = getCoverUrlByVs(candidate, size);
-            console.log('[Cover] Trying vs:', candidate, url);
             if (await checkCoverValid(url)) {
-                console.log('[Cover] vs valid:', candidate);
                 return url;
             }
         }
     }
 
     // 3. Return default cover
-    console.log('[Cover] Using default cover');
     return DEFAULT_COVER.replace('R800x800', `R${size}x${size}`);
 }
 
