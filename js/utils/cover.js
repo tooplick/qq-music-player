@@ -81,7 +81,9 @@ export async function getValidCoverUrl(song, size = 300) {
     }
 
     // 2. Try vs values
+    console.log('[Cover] song.vs:', song?.vs, 'keys:', Object.keys(song || {}));
     const vsValues = song?.vs || [];
+    console.log('[Cover] vsValues:', vsValues, 'length:', vsValues.length);
     if (Array.isArray(vsValues) && vsValues.length > 0) {
         console.log('[Cover] Trying vs values:', vsValues.filter(v => v));
 
