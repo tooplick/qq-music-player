@@ -11,6 +11,6 @@ database_id = "78640b14-91d6-4090-a7d1-9568dcf2f0ff"
 [triggers]
 crons = ["0 * * * *"]
 
-# 初始凭证配置（从 cookie.json 复制）
+# 初始凭证配置
 [vars]
 EXTERNAL_API_URL = "https://api.ygking.top"

@@ -8,6 +8,7 @@ import { getSongUrlWithFallback } from './api/song.js';
 import { getLyric } from './api/lyric.js';
 import { getCredential, updateCredential } from './api/credential.js';
 import { checkExpired, refreshCredential } from './api/login.js';
+import { getValidCoverUrl, getCoverUrlSync, DEFAULT_COVER } from './utils/cover.js';
 
 // Utility functions
 function formatTime(seconds) {
@@ -137,10 +138,14 @@ class UIManager {
 
             [this.els.title, this.els.artist, this.els.titleMini, this.els.artistMini].forEach(el => el?.classList.remove('fade-out'));
 
-            // Update cover
-            const coverUrl = song.album_mid
-                ? `https://y.gtimg.cn/music/photo_new/T002R800x800M000${song.album_mid}.jpg`
-                : 'https://y.gtimg.cn/music/photo_new/T002R800x800M000003y8dsH2wBHlo_1.jpg';
+            // Update cover - use sync first, then validate async
+            const coverUrl = getCoverUrlSync(song, 800);
+            // Async validate and update if needed
+            getValidCoverUrl(song, 800).then(validUrl => {
+                if (validUrl !== coverUrl) {
+                    this.els.albumCover.src = validUrl;
+                }
+            });
 
             this.els.albumCover.src = coverUrl;
             this.els.albumCover.onload = () => this.els.albumCover.classList.remove('fade-out');
@@ -268,9 +273,7 @@ class UIManager {
         this.els.playlistList.innerHTML = '';
 
         queue.forEach((song, i) => {
-            const cover = song.album_mid
-                ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${song.album_mid}.jpg`
-                : 'https://y.gtimg.cn/music/photo_new/T002R300x300M000003y8dsH2wBHlo_1.jpg';
+            const cover = getCoverUrlSync(song, 300);
 
             const div = document.createElement('div');
             div.className = `playlist-item ${i === currentIndex ? 'playing' : ''}`;
@@ -746,9 +749,7 @@ class SearchManager {
             const singers = song.singer?.map(s => s.name).join(', ') || '';
             const isVip = song.pay?.pay_play !== 0;
 
-            const cover = song.album?.mid
-                ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${song.album.mid}.jpg`
-                : 'https://y.gtimg.cn/music/photo_new/T002R300x300M000003y8dsH2wBHlo_1.jpg';
+            const cover = getCoverUrlSync({ album_mid: song.album?.mid, vs: song.vs }, 300);
 
             const item = document.createElement('div');
             item.className = 'result-item';
@@ -774,6 +775,7 @@ class SearchManager {
                 singers: singers,
                 album: song.album?.name || '',
                 album_mid: song.album?.mid || '',
+                vs: song.vs || [],
                 vip: isVip,
                 interval: song.interval || 0
             };
