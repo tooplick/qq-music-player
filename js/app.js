@@ -61,20 +61,10 @@ class UIManager {
             // Playlist
             playlistList: document.getElementById('playlist-list'),
 
-            // Immersive Player
+            // Immersive Player (只保留歌词)
             immersivePlayer: document.getElementById('immersive-player'),
             immersiveClose: document.getElementById('immersive-close'),
-            immersiveCoverImg: document.getElementById('immersive-cover-img'),
-            immersiveTitle: document.getElementById('immersive-title'),
-            immersiveArtist: document.getElementById('immersive-artist'),
             lyricsScroll: document.getElementById('lyrics-scroll'),
-            immersiveCurrent: document.getElementById('immersive-current'),
-            immersiveTotal: document.getElementById('immersive-total'),
-            immersiveProgressBar: document.getElementById('immersive-progress-bar'),
-            immersiveProgressFill: document.getElementById('immersive-progress-fill'),
-            immersivePlay: document.getElementById('immersive-play'),
-            immersivePrev: document.getElementById('immersive-prev'),
-            immersiveNext: document.getElementById('immersive-next'),
 
             // Notifications
             notificationContainer: document.getElementById('notification-container')
@@ -258,37 +248,6 @@ class UIManager {
     closeImmersivePlayer() {
         this.els.immersivePlayer.classList.remove('active');
         document.body.style.overflow = '';
-    }
-
-    updateImmersivePlayer(song) {
-        // 更新封面
-        const coverCandidates = getCoverCandidates(song, 500);
-        this.els.immersiveCoverImg.src = coverCandidates[0];
-        this.els.immersiveCoverImg._coverCandidates = coverCandidates;
-        this.els.immersiveCoverImg.dataset.coverIndex = '0';
-        this.els.immersiveCoverImg.onerror = function () {
-            const currentIndex = parseInt(this.dataset.coverIndex) || 0;
-            const nextIndex = currentIndex + 1;
-            if (nextIndex < this._coverCandidates.length) {
-                this.dataset.coverIndex = nextIndex;
-                this.src = this._coverCandidates[nextIndex];
-            }
-        };
-
-        // 更新歌曲信息
-        this.els.immersiveTitle.textContent = song.name;
-        this.els.immersiveArtist.textContent = song.singers;
-    }
-
-    updateImmersiveProgress(currentTime, totalTime, percent) {
-        this.els.immersiveCurrent.textContent = formatTime(currentTime);
-        this.els.immersiveTotal.textContent = formatTime(totalTime);
-        this.els.immersiveProgressFill.style.width = `${percent * 100}%`;
-    }
-
-    setImmersivePlaying(isPlaying) {
-        const icon = this.els.immersivePlay.querySelector('i');
-        icon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play';
     }
 
     renderLyrics(lyrics) {
@@ -932,7 +891,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     ui.els.nowPlaying.onclick = () => {
         if (player.queue.length > 0 && player.currentIndex >= 0) {
             const currentSong = player.queue[player.currentIndex];
-            ui.updateImmersivePlayer(currentSong);
             ui.openImmersivePlayer();
 
             // 加载歌词
@@ -943,18 +901,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 关闭按钮
     ui.els.immersiveClose.onclick = () => {
         ui.closeImmersivePlayer();
-    };
-
-    // 沉浸式播放页控制按钮
-    ui.els.immersivePlay.onclick = () => player.togglePlay();
-    ui.els.immersivePrev.onclick = () => player.prev();
-    ui.els.immersiveNext.onclick = () => player.next();
-
-    // 沉浸式进度条点击
-    ui.els.immersiveProgressBar.onclick = (e) => {
-        const rect = ui.els.immersiveProgressBar.getBoundingClientRect();
-        const percent = (e.clientX - rect.left) / rect.width;
-        player.seek(player.audio.duration * percent);
     };
 
     // 歌词点击跳转
@@ -978,33 +924,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // 歌曲切换时更新沉浸式播放页
+    // 歌曲切换时重新加载歌词
     player.audio.addEventListener('loadstart', () => {
         if (ui.els.immersivePlayer.classList.contains('active')) {
             if (player.currentIndex >= 0 && player.queue[player.currentIndex]) {
                 const song = player.queue[player.currentIndex];
-                ui.updateImmersivePlayer(song);
                 loadLyricsForSong(song.mid);
             }
         }
     });
 
-    // 播放状态变化时更新沉浸式播放图标
-    player.audio.addEventListener('play', () => {
-        ui.setImmersivePlaying(true);
-    });
-    player.audio.addEventListener('pause', () => {
-        ui.setImmersivePlaying(false);
-    });
-
-    // 播放进度更新沉浸式页面
+    // 播放进度更新歌词高亮
     player.audio.addEventListener('timeupdate', () => {
-        const current = player.audio.currentTime;
-        const total = player.audio.duration || 0;
-        const percent = total > 0 ? current / total : 0;
-
-        ui.updateImmersiveProgress(current, total, percent);
-        ui.highlightLyric(current);
+        ui.highlightLyric(player.audio.currentTime);
     });
 
     // Check for expired credential
