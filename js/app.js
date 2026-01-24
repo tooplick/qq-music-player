@@ -276,10 +276,12 @@ class UIManager {
             return;
         }
 
-        // 渲染歌词行
-        this.els.lyricsScroll.innerHTML = lines.map((line, i) =>
-            `<div class="lyric-line" data-time="${line.time}" data-index="${i}">${line.text || '♪'}</div>`
-        ).join('');
+        // 渲染歌词行（过滤空行）
+        this.els.lyricsScroll.innerHTML = lines
+            .filter(line => line.text)
+            .map((line, i) =>
+                `<div class="lyric-line" data-time="${line.time}" data-index="${i}">${line.text}</div>`
+            ).join('');
 
         this.lastHighlightIdx = -1;
     }
