@@ -384,9 +384,9 @@ class UIManager {
     updateImmersiveLayout() {
         const h = window.innerHeight;
         // 动态半径：高度越高，半径越小
-        // 降低系数以获得更小的半径（更大的弯曲度）
-        let radius = 360000 / Math.max(300, h);
-        radius = Math.max(300, Math.min(800, radius));
+        // 调大系数以获得稍大的半径（减小弯曲度）
+        let radius = 500000 / Math.max(300, h);
+        radius = Math.max(400, Math.min(1000, radius));
         this.els.lyricsScroll.style.setProperty('--lyric-radius', `${radius}px`);
 
         const spacing = 80;
