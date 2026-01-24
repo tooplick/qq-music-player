@@ -501,9 +501,29 @@ class SearchManager {
         this.ui = ui;
         this.currentKeyword = '';
         this.currentPage = 1;
-        this.totalPages = 1;
+        this.isLoading = false;
+        this.hasMore = true;
         this.perPage = 60;
-        this.lastResults = [];
+
+        this.setupInfiniteScroll();
+    }
+
+    setupInfiniteScroll() {
+        // 监听主内容区滚动
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+            mainContent.addEventListener('scroll', () => {
+                // 只在搜索页面激活时触发
+                if (!this.ui.els.searchPage.classList.contains('active')) return;
+                if (this.isLoading || !this.hasMore || !this.currentKeyword) return;
+
+                const { scrollTop, scrollHeight, clientHeight } = mainContent;
+                // 距离底部100px时开始加载
+                if (scrollTop + clientHeight >= scrollHeight - 100) {
+                    this.loadMore();
+                }
+            });
+        }
     }
 
     formatDuration(seconds) {
@@ -513,10 +533,7 @@ class SearchManager {
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
-    async search(keyword, page = 1) {
-        this.currentKeyword = keyword;
-        this.currentPage = page;
-
+    async search(keyword, page = 1, append = false) {
         if (!keyword.trim()) {
             this.ui.els.resultsList.innerHTML = `
                 <div class="empty-state">
@@ -528,41 +545,63 @@ class SearchManager {
             return;
         }
 
+        // 新搜索时重置状态
+        if (!append) {
+            this.currentKeyword = keyword;
+            this.currentPage = 1;
+            this.hasMore = true;
+            this.ui.els.resultsList.innerHTML = '';
+        }
+
+        this.isLoading = true;
         this.ui.els.loadingSpinner.style.display = 'flex';
-        this.ui.els.resultsList.innerHTML = '';
 
         try {
-            const results = await searchByType(keyword, 60, page);
+            const results = await searchByType(keyword, this.perPage, page);
 
             this.ui.els.loadingSpinner.style.display = 'none';
+            this.isLoading = false;
 
             if (!results || results.length === 0) {
-                this.ui.els.resultsList.innerHTML = '<div class="empty-state"><p>未找到结果</p></div>';
-                this.ui.els.pagination.style.display = 'none';
+                if (!append) {
+                    this.ui.els.resultsList.innerHTML = '<div class="empty-state"><p>未找到结果</p></div>';
+                }
+                this.hasMore = false;
                 return;
             }
 
-            this.lastResults = results;
-            this.renderResults(results);
-            this.totalPages = Math.ceil(results.length / this.perPage);
-            this.updatePagination();
+            // 如果返回数量小于请求数量，说明没有更多了
+            if (results.length < this.perPage) {
+                this.hasMore = false;
+            }
+
+            this.currentPage = page;
+            this.renderResults(results, append);
+            this.ui.els.pagination.style.display = 'none'; // 隐藏分页，使用无限滚动
 
         } catch (error) {
             console.error('Search failed:', error);
             this.ui.els.loadingSpinner.style.display = 'none';
+            this.isLoading = false;
             this.ui.notify('搜索失败: ' + error.message, 'error');
         }
     }
 
-    renderResults(results) {
-        this.ui.els.resultsList.innerHTML = '';
+    loadMore() {
+        if (this.isLoading || !this.hasMore) return;
+        this.search(this.currentKeyword, this.currentPage + 1, true);
+    }
+
+    renderResults(results, append = false) {
+        if (!append) {
+            this.ui.els.resultsList.innerHTML = '';
+        }
 
         results.forEach(song => {
             const singers = song.singer?.map(s => s.name).join(', ') || '';
             const cover = getCoverUrlSync({ album_mid: song.album?.mid, vs: song.vs }, 300);
             const albumName = song.album?.name || '';
             const duration = song.interval ? this.formatDuration(song.interval) : '';
-            const isVip = song.pay?.pay_play === 1;
 
             const item = document.createElement('div');
             item.className = 'song-item';
@@ -571,16 +610,11 @@ class SearchManager {
                     <img src="${cover}" loading="lazy">
                 </div>
                 <div class="item-info">
-                    <div class="item-title">
-                        ${isVip ? '<span class="vip-badge">VIP</span>' : ''}
-                        ${song.title}
-                    </div>
-                    <div class="item-meta">
-                        <span class="item-artist">${singers}</span>
-                        ${albumName ? `<span class="item-album">· ${albumName}</span>` : ''}
-                    </div>
+                    <div class="item-title">${song.title || song.name}</div>
+                    <div class="item-artist">${singers}</div>
                 </div>
                 <div class="item-extra">
+                    ${albumName ? `<span class="item-album">${albumName}</span>` : ''}
                     ${duration ? `<span class="item-duration">${duration}</span>` : ''}
                 </div>
                 <div class="item-actions">
@@ -592,12 +626,11 @@ class SearchManager {
 
             const songData = {
                 mid: song.mid,
-                name: song.title,
+                name: song.title || song.name,
                 singers: singers,
                 album: song.album?.name || '',
                 album_mid: song.album?.mid || '',
                 vs: song.vs || [],
-                vip: song.pay?.pay_play !== 0,
                 interval: song.interval || 0
             };
 
@@ -618,28 +651,16 @@ class SearchManager {
     }
 
     updatePagination() {
-        if (this.totalPages <= 1) {
-            this.ui.els.pagination.style.display = 'none';
-            return;
-        }
-
-        this.ui.els.pagination.style.display = 'flex';
-        this.ui.els.pageInfo.textContent = `${this.currentPage} / ${this.totalPages}`;
-
-        document.getElementById('prev-page').disabled = this.currentPage === 1;
-        document.getElementById('next-page').disabled = this.currentPage === this.totalPages;
+        // 不再使用分页，改用无限滚动
+        this.ui.els.pagination.style.display = 'none';
     }
 
     nextPage() {
-        if (this.currentPage < this.totalPages) {
-            this.search(this.currentKeyword, this.currentPage + 1);
-        }
+        this.loadMore();
     }
 
     prevPage() {
-        if (this.currentPage > 1) {
-            this.search(this.currentKeyword, this.currentPage - 1);
-        }
+        // 无限滚动模式下不需要
     }
 }
 

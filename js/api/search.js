@@ -1,46 +1,32 @@
 /**
  * QQ Music Search API
+ * 使用 api.ygking.top
  */
-
-import { apiRequest, getSearchId } from './request.js';
 
 /**
  * Search songs by keyword
  * @param {string} keyword - Search keyword
- * @param {number} num - Number of results (default 20)
+ * @param {number} num - Number of results (default 60)
  * @param {number} page - Page number (default 1)
  * @returns {Promise<Array>} - Array of song results
  */
-export async function searchByType(keyword, num = 20, page = 1) {
-    const params = {
-        searchid: getSearchId(),
-        query: keyword,
-        search_type: 0,
-        num_per_page: num,
-        page_num: page,
-        highlight: 1,
-        grp: 1
-    };
+export async function searchByType(keyword, num = 60, page = 1) {
+    const url = `https://api.ygking.top/api/search?keyword=${encodeURIComponent(keyword)}&type=song&num=${num}&page=${page}`;
 
-    const result = await apiRequest(
-        'music.search.SearchCgiService',
-        'DoSearchForQQMusicMobile',
-        params
-    );
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
 
-    // Extract song list from response - try multiple possible paths
-    if (result.body?.item_song) {
-        return result.body.item_song;
-    }
-    if (result.item_song) {
-        return result.item_song;
-    }
-    if (result.data?.body?.item_song) {
-        return result.data.body.item_song;
-    }
+        if (data.code === 0 && data.data?.list) {
+            return data.data.list;
+        }
 
-    console.warn('No songs found in response:', result);
-    return [];
+        console.warn('No songs found in response:', data);
+        return [];
+    } catch (error) {
+        console.error('Search failed:', error);
+        throw error;
+    }
 }
 
 /**
@@ -66,22 +52,5 @@ export async function quickSearch(keyword) {
     }
 }
 
-/**
- * Get hot search keywords
- * @returns {Promise<Array>} - Hot keywords
- */
-export async function getHotKeys() {
-    const params = {
-        search_id: getSearchId()
-    };
+export default { searchByType, quickSearch };
 
-    const result = await apiRequest(
-        'music.musicsearch.HotkeyService',
-        'GetHotkeyForQQMusicMobile',
-        params
-    );
-
-    return result.vec_hotkey || [];
-}
-
-export default { searchByType, quickSearch, getHotKeys };
