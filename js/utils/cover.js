@@ -153,5 +153,35 @@ export function getCoverUrlSync(song, size = 300) {
     return DEFAULT_COVER.replace('R800x800', `R${size}x${size}`);
 }
 
+/**
+ * Get all cover URL candidates for fallback
+ * Returns an array of URLs to try in order
+ */
+export function getCoverCandidates(song, size = 300) {
+    const candidates = [];
+
+    // 1. Try album_mid first
+    const albumMid = song?.album_mid || song?.album?.mid;
+    if (albumMid) {
+        candidates.push(getCoverUrlByAlbumMid(albumMid, size));
+    }
+
+    // 2. Collect all valid vs values
+    const vsValues = song?.vs || [];
+    if (Array.isArray(vsValues)) {
+        for (const vs of vsValues) {
+            if (vs && typeof vs === 'string' && vs.length >= 3 && !vs.includes(',')) {
+                candidates.push(getCoverUrlByVs(vs, size));
+            }
+        }
+    }
+
+    // 3. Add default as last resort
+    candidates.push(DEFAULT_COVER.replace('R800x800', `R${size}x${size}`));
+
+    return candidates;
+}
+
 export { DEFAULT_COVER };
+
 
