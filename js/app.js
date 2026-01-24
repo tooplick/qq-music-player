@@ -435,6 +435,7 @@ class UIManager {
             }, 5000);
         }
     }
+}
 
 // Player Manager Class
 class PlayerManager {
