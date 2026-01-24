@@ -64,6 +64,8 @@ class UIManager {
             // Immersive Player (只保留歌词)
             immersivePlayer: document.getElementById('immersive-player'),
             immersiveClose: document.getElementById('immersive-close'),
+            immersivePrev: document.getElementById('immersive-prev'),
+            immersiveNext: document.getElementById('immersive-next'),
             lyricsScroll: document.getElementById('lyrics-scroll'),
 
             // Notifications
@@ -1023,6 +1025,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 关闭按钮
     ui.els.immersiveClose.onclick = () => {
         ui.closeImmersivePlayer();
+    };
+
+    ui.els.immersivePrev.onclick = () => {
+        player.prev();
+    };
+
+    ui.els.immersiveNext.onclick = () => {
+        player.next();
     };
 
     // 歌词点击跳转

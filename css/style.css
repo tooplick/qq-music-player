@@ -1124,3 +1124,58 @@ body.playing .bg-layer {
 .now-playing {
     cursor: pointer;
 }
+
+/* 沉浸式播放页控制按钮 */
+.immersive-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 30px;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    /* 默认更淡 */
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 100;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.immersive-close:hover {
+    opacity: 1;
+    color: #fff;
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.1), transparent 60%);
+}
+
+.immersive-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 40px;
+    /* 图标大一点 */
+    cursor: pointer;
+    z-index: 100;
+    padding: 100px 40px;
+    /* 大点击区域 */
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.immersive-nav:hover {
+    opacity: 1;
+    color: #fff;
+    /* 径向渐变背景，制造光晕效果 */
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.05), transparent 70%);
+}
+
+.immersive-prev {
+    left: 0;
+}
+
+.immersive-next {
+    right: 0;
+}
