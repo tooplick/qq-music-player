@@ -382,7 +382,7 @@ class PlayerManager {
         this.audio.currentTime = time;
     }
 
-    addToQueue(song) {
+    addToQueue(song, silent = false) {
         // 检查是否已存在相同歌曲
         const existingIndex = this.queue.findIndex(s => s.mid === song.mid);
         if (existingIndex !== -1) {
@@ -397,7 +397,9 @@ class PlayerManager {
         this.queue.push(song);
         this.saveQueue();
         this.ui.renderPlaylist(this.queue, this.currentIndex);
-        this.ui.notify(`已添加: ${song.name}`);
+        if (!silent) {
+            this.ui.notify(`已添加: ${song.name}`);
+        }
     }
 
     playFromQueue(index) {
@@ -656,9 +658,9 @@ class SearchManager {
                 interval: song.interval || 0
             };
 
-            // 点击整行播放
+            // 点击整行播放（静默添加，不显示提示）
             item.onclick = () => {
-                window.player.addToQueue(songData);
+                window.player.addToQueue(songData, true);
                 window.player.playFromQueue(window.player.queue.length - 1);
             };
 
