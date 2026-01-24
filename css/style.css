@@ -945,7 +945,8 @@ body.playing .bg-layer {
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    /* 左对齐 */
 }
 
 .lyrics-scroll {
@@ -953,56 +954,49 @@ body.playing .bg-layer {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    /* 圆心在左侧中心外 */
-    --circle-center-x: -30vw;
-    --circle-radius: 80vw;
+    /* 定义圆的半径 */
+    --lyric-radius: 80vh;
+    /* 定义圆心各行距离左侧的偏移 (圆边缘的位置) */
+    --lyric-left: 40px;
 }
 
 .lyrics-scroll::-webkit-scrollbar {
     display: none;
 }
 
-.lyrics-placeholder {
-    color: rgba(255, 255, 255, 0.3);
-    text-align: center;
-    padding: 40px;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-
-.lyrics-placeholder i {
-    font-size: 64px;
-    margin-bottom: 20px;
-    opacity: 0.4;
-    display: block;
-}
-
 .lyric-line {
     position: absolute;
-    left: calc(var(--circle-center-x) + var(--circle-radius));
+    /* 所有行初始都在垂直居中位置 */
     top: 50%;
-    transform-origin: calc(var(--circle-center-x) * -1) 0;
+    /* 水平位置固定 */
+    left: var(--lyric-left);
+    /* 旋转中心在左侧远端：圆心位置 = 当前left - 半径 */
+    transform-origin: calc(var(--lyric-radius) * -1) 50%;
+
     white-space: nowrap;
-    padding: 8px 20px;
+    padding: 10px 20px;
     font-size: 20px;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.3);
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    color: rgba(255, 255, 255, 0.35);
+    transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    /* 更平滑的缓动 */
     cursor: pointer;
     letter-spacing: 1px;
+    /* 解决文字模糊问题 */
+    backface-visibility: hidden;
+    -webkit-font-smoothing: antialiased;
 }
 
 .lyric-line:hover {
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .lyric-line.active {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 700;
     color: #ffffff;
-    text-shadow: 0 0 30px rgba(255, 255, 255, 0.4);
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+    z-index: 10;
 }
 
 .immersive-controls {

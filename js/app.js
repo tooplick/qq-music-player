@@ -324,7 +324,7 @@ class UIManager {
 
         // 更新高亮和弧形布局
         const lines = this.els.lyricsScroll.querySelectorAll('.lyric-line');
-        const angleStep = 8; // 每行间隔角度
+        const angleStep = 5; // 减小角度步长，适应大半径
 
         lines.forEach((line, i) => {
             const isActive = i === activeIdx;
@@ -335,11 +335,17 @@ class UIManager {
             // 计算旋转角度
             const angle = offset * angleStep;
             // 计算透明度（越远越透明）
-            const opacity = Math.max(0.1, 1 - Math.abs(offset) * 0.15);
+            const opacity = Math.max(0, 1 - Math.abs(offset) * 0.2);
+            // 计算缩放（越远越小）
+            const scale = isActive ? 1.1 : Math.max(0.8, 1 - Math.abs(offset) * 0.05);
 
             // 应用变换
-            line.style.transform = `rotate(${angle}deg)`;
+            // 注意：active状态下CSS有transform: scale(1.05)，这里我们直接覆盖transform
+            line.style.transform = `rotate(${angle}deg) scale(${scale})`;
             line.style.opacity = isActive ? 1 : opacity;
+
+            // 优化性能：离得太远的行隐藏
+            line.style.visibility = opacity <= 0.05 ? 'hidden' : 'visible';
         });
     }
 
