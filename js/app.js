@@ -1044,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const delta = e.deltaY * 0.005;
         if (ui.currentRenderIndex !== undefined) {
             ui.currentRenderIndex = Math.max(0, Math.min(ui.currentLyrics.length - 1, ui.currentRenderIndex + delta));
-            ui.renderLyricLines();
+            // renderLoop will handle the rendering
         }
     });
 
@@ -1065,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const delta = deltaY * 0.02;
         if (ui.currentRenderIndex !== undefined) {
             ui.currentRenderIndex = Math.max(0, Math.min(ui.currentLyrics.length - 1, ui.currentRenderIndex + delta));
-            ui.renderLyricLines();
+            // renderLoop will handle the rendering
         }
     });
 
