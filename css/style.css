@@ -980,15 +980,15 @@ body.playing .bg-layer {
     /* 增大基础字号 */
     font-weight: 500;
     color: rgba(255, 255, 255, 0.35);
-    transition: color 0.3s ease, opacity 0.3s ease;
-    /* 移除 transform transition 以便JS控制滚动 */
-    cursor: pointer;
-    letter-spacing: 1px;
     /* 解决文字模糊问题 */
     backface-visibility: hidden;
     -webkit-font-smoothing: antialiased;
     /* 禁止选中 */
     user-select: none;
+    /* 性能优化 */
+    will-change: transform, opacity;
+    /* 仅保留颜色过渡，位置和透明度由JS每帧控制 */
+    transition: color 0.2s ease;
 }
 
 .lyric-line:hover {

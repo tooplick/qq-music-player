@@ -243,11 +243,13 @@ class UIManager {
     openImmersivePlayer() {
         this.els.immersivePlayer.classList.add('active');
         document.body.style.overflow = 'hidden';
+        this.startRenderLoop();
     }
 
     closeImmersivePlayer() {
         this.els.immersivePlayer.classList.remove('active');
         document.body.style.overflow = '';
+        this.stopRenderLoop();
     }
 
     renderLyrics(lyrics) {
@@ -259,35 +261,46 @@ class UIManager {
                 </div>
             `;
             this.currentLyrics = [];
+            this.lyricElements = [];
             return;
         }
 
         // 解析歌词
         const lines = this.parseLyrics(lyrics.lyric);
-        this.currentLyrics = lines;
+        // 使用 filter 过滤空行，这步很重要，后续逻辑都基于 filter 后的数组
+        this.currentLyrics = lines.filter(l => l.text);
 
-        if (lines.length === 0) {
+        if (this.currentLyrics.length === 0) {
             this.els.lyricsScroll.innerHTML = `
                 <div class="lyrics-placeholder">
                     <i class="fas fa-music"></i>
                     <p>暂无歌词</p>
                 </div>
             `;
+            this.lyricElements = [];
             return;
         }
 
-        // 渲染歌词行（过滤空行）
-        this.els.lyricsScroll.innerHTML = lines
-            .filter(line => line.text)
-            .map((line, i) =>
-                `<div class="lyric-line" data-time="${line.time}" data-index="${i}">${line.text}</div>`
-            ).join('');
+        // 渲染歌词行（使用 fragment 优化）
+        const fragment = document.createDocumentFragment();
+        this.currentLyrics.forEach((line, i) => {
+            const el = document.createElement('div');
+            el.className = 'lyric-line';
+            el.dataset.time = line.time;
+            el.dataset.index = i;
+            el.textContent = line.text;
+            fragment.appendChild(el);
+        });
 
-        // 重置缓存
-        this._lyricLinesCache = null;
+        this.els.lyricsScroll.innerHTML = '';
+        this.els.lyricsScroll.appendChild(fragment);
+
+        // 缓存 DOM 元素
+        this.lyricElements = Array.from(this.els.lyricsScroll.querySelectorAll('.lyric-line'));
+
         this.lastHighlightIdx = -1;
-        this.currentRenderIndex = undefined;
-        this._ticking = false;
+        this.targetRenderIndex = 0;
+        this.currentRenderIndex = 0;
     }
 
     parseLyrics(lyricText) {
@@ -308,147 +321,125 @@ class UIManager {
     }
 
     highlightLyric(currentTime) {
-        if (!this.currentLyrics || this.currentLyrics.length === 0) return;
-        // 过滤后的歌词
-        const filteredLyrics = this.currentLyrics.filter(l => l.text);
-        if (filteredLyrics.length === 0) return;
-
-        // 缓存 DOM 元素
-        if (!this._lyricLinesCache || this._lyricLinesCache.length !== filteredLyrics.length) {
-            this._lyricLinesCache = Array.from(this.els.lyricsScroll.querySelectorAll('.lyric-line'));
-        }
+        // 如果没有歌词或元素，直接返回
+        if (!this.lyricElements || this.lyricElements.length === 0) return;
 
         // 找到当前歌词行
         let activeIdx = -1;
-        // 优化查找：从上次位置附近开始查找
-        const startSearch = this.lastHighlightIdx > 0 ? this.lastHighlightIdx : 0;
-        // 简单向前向后查找，或者直接遍历（数目不大时遍历也很快，但可以优化）
-        for (let i = startSearch; i < filteredLyrics.length; i++) {
-            if (currentTime >= filteredLyrics[i].time) {
-                // 检查下一行是否也满足（防止直接跳过）
-                if (i === filteredLyrics.length - 1 || currentTime < filteredLyrics[i + 1].time) {
-                    activeIdx = i;
-                    break;
-                }
-            }
-        }
-        // 如果没找到，可能回跳了
-        if (activeIdx === -1) {
-            for (let i = 0; i < filteredLyrics.length; i++) {
-                if (currentTime >= filteredLyrics[i].time) {
-                    if (i === filteredLyrics.length - 1 || currentTime < filteredLyrics[i + 1].time) {
-                        activeIdx = i;
-                        break;
-                    }
-                }
+        // 倒序查找（微优化）
+        for (let i = this.currentLyrics.length - 1; i >= 0; i--) {
+            if (currentTime >= this.currentLyrics[i].time) {
+                activeIdx = i;
+                break;
             }
         }
 
-        // 更新高亮样式（仅当索引变化时操作DOM）
+        // 只有当行发生变化时才更新 active 状态，减少 DOM 操作
         if (activeIdx !== this.lastHighlightIdx) {
-            // 移除旧高亮
-            if (this.lastHighlightIdx !== -1 && this._lyricLinesCache[this.lastHighlightIdx]) {
-                this._lyricLinesCache[this.lastHighlightIdx].classList.remove('active');
+            // 移除旧的高亮
+            if (this.lastHighlightIdx >= 0 && this.lyricElements[this.lastHighlightIdx]) {
+                this.lyricElements[this.lastHighlightIdx].classList.remove('active');
             }
-            // 添加新高亮
-            if (activeIdx !== -1 && this._lyricLinesCache[activeIdx]) {
-                this._lyricLinesCache[activeIdx].classList.add('active');
+            // 添加新的高亮
+            if (activeIdx >= 0 && this.lyricElements[activeIdx]) {
+                this.lyricElements[activeIdx].classList.add('active');
             }
             this.lastHighlightIdx = activeIdx;
         }
 
-        // 自动更新渲染位置逻辑
-        if (!this.userScrolling && activeIdx !== -1) {
-            const targetIndex = activeIdx;
+        // 设置目标渲染索引，渲染循环会负责平滑过渡
+        if (!this.userScrolling) {
+            this.targetRenderIndex = activeIdx !== -1 ? activeIdx : 0;
+        }
+    }
 
-            // 初始化
-            if (this.currentRenderIndex === undefined) {
-                this.currentRenderIndex = targetIndex;
-            }
+    startRenderLoop() {
+        if (this.renderLoopId) return;
+        const loop = () => {
+            this.renderFrame();
+            this.renderLoopId = requestAnimationFrame(loop);
+        };
+        this.renderLoopId = requestAnimationFrame(loop);
+    }
 
-            // 平滑插值
-            const diff = targetIndex - this.currentRenderIndex;
+    stopRenderLoop() {
+        if (this.renderLoopId) {
+            cancelAnimationFrame(this.renderLoopId);
+            this.renderLoopId = null;
+        }
+    }
+
+    renderFrame() {
+        if (!this.lyricElements || this.lyricElements.length === 0) return;
+
+        // 缓动逻辑：逼近目标
+        // 如果是触摸滑动中，currentRenderIndex 已经在 touchmove 中更新了，不需要缓动
+        if (!this.userScrolling) {
+            const diff = this.targetRenderIndex - this.currentRenderIndex;
             if (Math.abs(diff) > 0.001) {
-                this.currentRenderIndex += diff * 0.1;
-                this.requestRender();
+                this.currentRenderIndex += diff * 0.1; // 缓动因子
             } else {
-                this.currentRenderIndex = targetIndex;
-                this.requestRender(); // 确保最终位置准确
+                this.currentRenderIndex = this.targetRenderIndex;
             }
         }
-    }
-
-    requestRender() {
-        if (!this._ticking) {
-            window.requestAnimationFrame(() => {
-                this.renderLyricLines();
-                this._ticking = false;
-            });
-            this._ticking = true;
-        }
-    }
-
-    renderLyricLines() {
-        if (!this._lyricLinesCache) return;
 
         const angleStep = 3.5;
-        const bias = -1;
-        const centerIndex = this.currentRenderIndex;
+        const bias = -1; // 视觉偏移
 
-        // 仅渲染可见范围内的行（例如上下各15行）
-        // 实际上由于弧形布局，太远的行完全不可见或重叠
-        // 可以只处理 radius 范围内的，比如 +/- 20 range
-        const visibleRange = 20;
-        const startI = Math.max(0, Math.floor(centerIndex - visibleRange));
-        const endI = Math.min(this._lyricLinesCache.length - 1, Math.ceil(centerIndex + visibleRange));
+        // 只渲染视野附近的行（性能优化关键）
+        // 假设视野能覆盖上下 20 行（足够宽裕了）
+        const visibleRange = 25;
+        const centerIndex = Math.floor(this.currentRenderIndex);
+        const startIndex = Math.max(0, centerIndex - visibleRange);
+        const endIndex = Math.min(this.lyricElements.length, centerIndex + visibleRange);
 
-        // 必须隐藏范围外的（只操作一次，之后如果在这个范围外就不会再动了，所以需要确保之前的状态是hidden）
-        // 为了简单，我们只遍历 cache 中所有元素太慢，所以这里我们应该全量遍历一次？
-        // 不，全量遍历正是卡顿原因。
-        // 优化策略：只更新 visibleRange 内的 style。对于 range 外的，
-        // 如果它们之前是 visible 的，现在变 invisible 才需要操作。
-        // 更简单的方案：利用 visibility: hidden，浏览器会自动优化渲染，但 JS 循环还是有开销。
-        // 考虑到 JS 循环几百次通常很快（<1ms），主要开销是 DOM style设置。
-        // 所以我们还是只对 visibleRange 内的设置 style。
+        // 1. 隐藏范围外的元素 (如果之前是可见的)
+        // 简单起见，可以遍历所有元素，或者维护一个 'visibleSet'
+        // 为了极致性能，我们可以简单地把所有元素设为 hidden，再把范围内的设为 visible
+        // 但 transform 操作比 visibility 重。
+        // 优化方案：只遍历 visibleRange 内的元素进行 transform 更新。
+        // 对于范围外的，由于 visibility 属性是我们设置的，它们应该已经被隐藏了。
+        // 只有当滚动跨度很大时才需要全量清理。通常我们逐帧更新，这就够了。
 
-        // 我们需要清理之前可见但现在不可见的
-        // 记录上一次的 range? 或者简单点，仅仅遍历 startI 到 endI，
-        // 并把所有其他的都设为 hidden?
-        // 实际上, 我们可以在 Cache 中给每个 element 标记 _isVisible。
+        // 遍历所有元素开销太大，我们只更新需要的。
+        // 但是之前可见的现在不可见了怎么办？
+        // 可以简单遍历 startIndex 到 endIndex，设置样式。
+        // 为了防止残留，我们可以记录上一帧的 startIndex 和 endIndex，把移出去的部分隐藏。
+        // 这里偷懒一点，遍历稍大一点的范围，或者每隔几十帧做一次全量清理？
+        // 其实对于 100 行以内的歌词，全部遍历这种简单的计算开销很小 (JS很快)，
+        // 开销大的是 layout。如果 element 不可见 (display:none 或 visibility:hidden)，
+        // 并且不改变 transform，浏览器应该不会重排。
 
-        // 快速遍历所有，只有在状态改变时才操作 DOM
-        this._lyricLinesCache.forEach((line, i) => {
-            // 计算 offset
-            const offset = (i - centerIndex + bias);
+        // 让我们还是遍历所有行吧，现在的 JS 引擎对于几百次循环是微秒级的。
+        // 关键是：对于可以跳过的行，不要修改 DOM !
 
-            // 判断是否在可见范围内
-            if (Math.abs(offset) > visibleRange) {
-                if (line.style.visibility !== 'hidden') {
-                    line.style.visibility = 'hidden';
+        for (let i = 0; i < this.lyricElements.length; i++) {
+            // 距离视觉中心的距离
+            const offset = i - this.currentRenderIndex + bias;
+
+            // 如果在可视范围内
+            if (Math.abs(offset) < visibleRange) {
+                const el = this.lyricElements[i];
+                const angle = offset * angleStep;
+                const opacity = Math.max(0, 1 - Math.abs(offset) * 0.2);
+
+                // 仅当数值有显著变化时才写入 DOM ? 
+                // 浏览器其实会做 diff。我们直接写 transform。
+                el.style.transform = `rotate(${angle}deg)`;
+                el.style.opacity = opacity;
+
+                // 确保可见
+                if (el.style.visibility !== 'visible') {
+                    el.style.visibility = 'visible';
                 }
-                return;
-            }
-
-            const angle = offset * angleStep;
-            const opacity = Math.max(0, 1 - Math.abs(offset) * 0.2);
-
-            // 只有当 opacity > 0.05 才显示
-            if (opacity <= 0.05) {
-                if (line.style.visibility !== 'hidden') {
-                    line.style.visibility = 'hidden';
+            } else {
+                // 超出范围，隐藏
+                // 检查是否已经是 hidden，避免重复写入导致 Recalculate Style
+                if (this.lyricElements[i].style.visibility !== 'hidden') {
+                    this.lyricElements[i].style.visibility = 'hidden';
                 }
-                return;
             }
-
-            // 必须显示
-            if (line.style.visibility === 'hidden' || line.style.visibility === '') {
-                line.style.visibility = 'visible';
-            }
-
-            // 优化：使用 transform3d 开启硬件加速
-            line.style.transform = `rotate(${angle}deg) translateZ(0)`;
-            line.style.opacity = opacity;
-        });
+        }
     }
 
     // 设置用户滚动状态
