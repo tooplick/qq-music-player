@@ -132,30 +132,33 @@ class UIManager {
         this.els.barTitle.textContent = song.name;
         this.els.barArtist.textContent = song.singers;
 
-        // 更新封面
-        const coverUrl = getCoverUrlSync(song, 300);
-        this.els.thumbImg.src = coverUrl;
-
-        // 异步验证并更新封面
-        getValidCoverUrl(song, 300).then(validUrl => {
-            if (validUrl !== coverUrl) {
-                this.els.thumbImg.src = validUrl;
+        // 更新封面 - 使用候选列表和回退机制
+        const coverCandidates = getCoverCandidates(song, 300);
+        this.els.thumbImg.src = coverCandidates[0];
+        this.els.thumbImg._coverCandidates = coverCandidates;
+        this.els.thumbImg.dataset.coverIndex = '0';
+        this.els.thumbImg.onerror = function () {
+            const currentIndex = parseInt(this.dataset.coverIndex) || 0;
+            const nextIndex = currentIndex + 1;
+            if (nextIndex < this._coverCandidates.length) {
+                this.dataset.coverIndex = nextIndex;
+                this.src = this._coverCandidates[nextIndex];
             }
-        });
+        };
 
-        // 更新背景
-        this.setBackground(coverUrl);
+        // 更新背景 (使用第一个候选)
+        this.setBackground(coverCandidates[0]);
 
         // Update Media Session
         if ('mediaSession' in navigator) {
-            const coverUrl800 = getCoverUrlSync(song, 800);
+            const coverCandidates800 = getCoverCandidates(song, 800);
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: song.name,
                 artist: song.singers,
                 album: song.album || '',
                 artwork: [
-                    { src: coverUrl, sizes: '300x300', type: 'image/jpeg' },
-                    { src: coverUrl800, sizes: '800x800', type: 'image/jpeg' }
+                    { src: coverCandidates[0], sizes: '300x300', type: 'image/jpeg' },
+                    { src: coverCandidates800[0], sizes: '800x800', type: 'image/jpeg' }
                 ]
             });
         }
