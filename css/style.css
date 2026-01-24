@@ -989,6 +989,8 @@ body.playing .bg-layer {
     -webkit-font-smoothing: antialiased;
     /* 禁止选中 */
     user-select: none;
+    /* 性能优化：提示浏览器该元素即将发生变化 */
+    will-change: transform, opacity;
 }
 
 .lyric-line:hover {

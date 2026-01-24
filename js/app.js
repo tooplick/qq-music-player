@@ -278,11 +278,6 @@ class UIManager {
 
         // 渲染歌词行（过滤空行）
         this.els.lyricsScroll.innerHTML = lines
-            .filter(line => line.text)
-            .map((line, i) =>
-                `<div class="lyric-line" data-time="${line.time}" data-index="${i}">${line.text}</div>`
-            ).join('');
-
         this.lastHighlightIdx = -1;
     }
 
@@ -319,53 +314,85 @@ class UIManager {
             }
         }
 
-        // 更新高亮样式
-        const lines = this.els.lyricsScroll.querySelectorAll('.lyric-line');
+        // 更新高亮样式 (使用缓存的DOM)
         if (activeIdx !== this.lastHighlightIdx) {
-            lines.forEach((line, i) => {
-                line.classList.toggle('active', i === activeIdx);
-            });
+            if (this.lyricLines && this.lyricLines.length > 0) {
+                // 仅更新变化的部分，避免遍历所有行
+                if (this.lastHighlightIdx >= 0 && this.lyricLines[this.lastHighlightIdx]) {
+                    this.lyricLines[this.lastHighlightIdx].classList.remove('active');
+                }
+                if (activeIdx >= 0 && this.lyricLines[activeIdx]) {
+                    this.lyricLines[activeIdx].classList.add('active');
+                }
+            }
             this.lastHighlightIdx = activeIdx;
         }
 
         // 如果没有正在滚动，自动更新渲染位置
         if (!this.userScrolling) {
-            // 使用缓动逼近目标位置
             const targetIndex = activeIdx;
-            // 简单的缓动：当前位置 += (目标位置 - 当前位置) *系数
-            // 但为了平滑，这里我们直接设置目标，让 renderLyricLines 处理偏移
-            this.currentRenderIndex = this.currentRenderIndex === undefined ? targetIndex : this.currentRenderIndex + (targetIndex - this.currentRenderIndex) * 0.1;
+
+            if (this.currentRenderIndex === undefined) {
+                this.currentRenderIndex = targetIndex;
+            } else {
+                // 简单的缓动
+                this.currentRenderIndex += (targetIndex - this.currentRenderIndex) * 0.1;
+            }
 
             // 如果差距很小，直接设置
             if (Math.abs(targetIndex - this.currentRenderIndex) < 0.01) {
                 this.currentRenderIndex = targetIndex;
             }
-            this.renderLyricLines();
+
+            this.scheduleRender();
         }
     }
 
+    scheduleRender() {
+        if (this.renderRafId) return;
+        this.renderRafId = requestAnimationFrame(() => {
+            this.renderLyricLines();
+            this.renderRafId = null;
+        });
+    }
+
     renderLyricLines() {
-        const lines = this.els.lyricsScroll.querySelectorAll('.lyric-line');
+        if (!this.lyricLines || this.lyricLines.length === 0) return;
+
         const angleStep = 3.5;
-        const bias = -1; // 向上偏移一行，使高亮显示在上一行的位置
+        const bias = -1; // 向上偏移一行
+        const visibleRange = 15; // 仅渲染可视范围内的行
 
-        lines.forEach((line, i) => {
-            // 这里的 offset 计算包含了 bias
-            // i 是当前行索引
-            // currentRenderIndex 是当前焦点行索引（可能是小数）
-            // bias 是额外的视觉偏移
-            const offset = (i - this.currentRenderIndex + bias);
+        const renderCenter = this.currentRenderIndex + bias;
+        const startIndex = Math.max(0, Math.floor(renderCenter - visibleRange));
+        const endIndex = Math.min(this.lyricLines.length - 1, Math.ceil(renderCenter + visibleRange));
 
+        // 批量处理可视范围内的行
+        for (let i = startIndex; i <= endIndex; i++) {
+            const line = this.lyricLines[i];
+            const offset = i - renderCenter;
             const angle = offset * angleStep;
-
-            // 计算透明度 - 距离 currentRenderIndex - bias (即视觉中心) 的距离
-            // 实际上视觉中心就是 offset = 0 的位置
             const opacity = Math.max(0, 1 - Math.abs(offset) * 0.2);
 
+            // 使用CSS transform
             line.style.transform = `rotate(${angle}deg)`;
             line.style.opacity = opacity;
             line.style.visibility = opacity <= 0.05 ? 'hidden' : 'visible';
-        });
+            // 标记已处理，防止后续清理逻辑混淆（可选）
+            line.dataset.rendered = 'true';
+        }
+
+        // 处理可视范围外的行（如果之前是可见的，现在隐藏）
+        // 这一步比较耗时，优化方案是只处理之前可见但现在不可见的
+        // 简单策略：偶尔全量清理，或者在滚动幅度大时清理。
+        // 这里采用保守策略：不处理范围外的，因为它们会被移出可视区。
+        // 为了确保不残留，我们可以检查边界
+        if (startIndex > 0 && this.lyricLines[startIndex - 1].style.visibility !== 'hidden') {
+            this.lyricLines[startIndex - 1].style.visibility = 'hidden';
+        }
+        if (endIndex < this.lyricLines.length - 1 && this.lyricLines[endIndex + 1].style.visibility !== 'hidden') {
+            this.lyricLines[endIndex + 1].style.visibility = 'hidden';
+        }
     }
 
     // 设置用户滚动状态
@@ -970,7 +997,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const delta = e.deltaY * 0.005;
         if (ui.currentRenderIndex !== undefined) {
             ui.currentRenderIndex = Math.max(0, Math.min(ui.currentLyrics.length - 1, ui.currentRenderIndex + delta));
-            ui.renderLyricLines();
+            ui.scheduleRender();
         }
     });
 
@@ -991,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const delta = deltaY * 0.02;
         if (ui.currentRenderIndex !== undefined) {
             ui.currentRenderIndex = Math.max(0, Math.min(ui.currentLyrics.length - 1, ui.currentRenderIndex + delta));
-            ui.renderLyricLines();
+            ui.scheduleRender();
         }
     });
 
