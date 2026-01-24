@@ -954,8 +954,8 @@ body.playing .bg-layer {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    /* 定义圆的半径 - 增大半径 */
-    --lyric-radius: 120vh;
+    /* 定义圆的半径 - 缩小半径 */
+    --lyric-radius: 90vh;
     /* 定义圆心各行距离左侧的偏移 (圆边缘的位置) - 居中大约 45vw */
     --lyric-left: 45vw;
 }
@@ -976,10 +976,10 @@ body.playing .bg-layer {
     white-space: nowrap;
     padding: 12px 20px;
     /* 增加一点padding */
-    font-size: 28px;
+    font-size: 34px;
     /* 增大基础字号 */
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.35);
+    color: rgba(255, 255, 255, 0.45);
     /* 解决文字模糊问题 */
     backface-visibility: hidden;
     -webkit-font-smoothing: antialiased;
@@ -992,11 +992,11 @@ body.playing .bg-layer {
 }
 
 .lyric-line:hover {
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .lyric-line.active {
-    font-size: 28px;
+    font-size: 34px;
     /* 保持跟普通行一致 */
     font-weight: 700;
     color: #ffffff;
