@@ -329,7 +329,7 @@ class PlayerManager {
             }
 
             if (!result.url) {
-                this.ui.notify('无法获取播放链接', 'error');
+                console.warn('无法获取播放链接');
                 return;
             }
 
@@ -349,7 +349,7 @@ class PlayerManager {
         } catch (error) {
             console.error('Play song failed:', error);
             if (error.name !== 'AbortError') {
-                this.ui.notify('播放失败: ' + error.message, 'error');
+                console.error('播放失败:', error.message);
             }
         } finally {
             if (this.loadingMid === song.mid) {
@@ -471,7 +471,7 @@ class PlayerManager {
         this.updateModeUI();
 
         const modeNames = { sequence: '顺序播放', repeat_one: '单曲循环', shuffle: '随机播放' };
-        this.ui.notify(`${modeNames[this.playMode]}`);
+        console.log(`播放模式: ${modeNames[this.playMode]}`);
     }
 
     updateModeUI() {
@@ -551,15 +551,21 @@ class SearchManager {
             this.currentPage = 1;
             this.hasMore = true;
             this.ui.els.resultsList.innerHTML = '';
+            this.ui.els.loadingSpinner.style.display = 'flex';
+        } else {
+            // 追加加载时，在列表底部显示加载提示
+            this.showLoadingMore();
         }
 
         this.isLoading = true;
-        this.ui.els.loadingSpinner.style.display = 'flex';
 
         try {
             const results = await searchByType(keyword, this.perPage, page);
 
-            this.ui.els.loadingSpinner.style.display = 'none';
+            this.hideLoadingMore();
+            if (!append) {
+                this.ui.els.loadingSpinner.style.display = 'none';
+            }
             this.isLoading = false;
 
             if (!results || results.length === 0) {
@@ -581,10 +587,26 @@ class SearchManager {
 
         } catch (error) {
             console.error('Search failed:', error);
-            this.ui.els.loadingSpinner.style.display = 'none';
+            this.hideLoadingMore();
+            if (!append) {
+                this.ui.els.loadingSpinner.style.display = 'none';
+            }
             this.isLoading = false;
-            this.ui.notify('搜索失败: ' + error.message, 'error');
         }
+    }
+
+    showLoadingMore() {
+        // 移除已有的加载提示
+        this.hideLoadingMore();
+        const loader = document.createElement('div');
+        loader.className = 'loading-more';
+        loader.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>正在加载...</span>';
+        this.ui.els.resultsList.appendChild(loader);
+    }
+
+    hideLoadingMore() {
+        const loader = this.ui.els.resultsList.querySelector('.loading-more');
+        if (loader) loader.remove();
     }
 
     loadMore() {

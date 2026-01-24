@@ -299,6 +299,16 @@ body.playing .bg-layer {
     color: var(--text-secondary);
 }
 
+.loading-more {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    color: var(--text-tertiary);
+    font-size: 13px;
+}
+
 .empty-state {
     display: flex;
     flex-direction: column;
