@@ -506,6 +506,13 @@ class SearchManager {
         this.lastResults = [];
     }
 
+    formatDuration(seconds) {
+        if (!seconds || isNaN(seconds)) return '';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
     async search(keyword, page = 1) {
         this.currentKeyword = keyword;
         this.currentPage = page;
@@ -553,6 +560,9 @@ class SearchManager {
         results.forEach(song => {
             const singers = song.singer?.map(s => s.name).join(', ') || '';
             const cover = getCoverUrlSync({ album_mid: song.album?.mid, vs: song.vs }, 300);
+            const albumName = song.album?.name || '';
+            const duration = song.interval ? this.formatDuration(song.interval) : '';
+            const isVip = song.pay?.pay_play === 1;
 
             const item = document.createElement('div');
             item.className = 'song-item';
@@ -561,8 +571,17 @@ class SearchManager {
                     <img src="${cover}" loading="lazy">
                 </div>
                 <div class="item-info">
-                    <div class="item-title">${song.title}</div>
-                    <div class="item-artist">${singers}</div>
+                    <div class="item-title">
+                        ${isVip ? '<span class="vip-badge">VIP</span>' : ''}
+                        ${song.title}
+                    </div>
+                    <div class="item-meta">
+                        <span class="item-artist">${singers}</span>
+                        ${albumName ? `<span class="item-album">· ${albumName}</span>` : ''}
+                    </div>
+                </div>
+                <div class="item-extra">
+                    ${duration ? `<span class="item-duration">${duration}</span>` : ''}
                 </div>
                 <div class="item-actions">
                     <button class="action-btn add-action" title="添加到列表">
