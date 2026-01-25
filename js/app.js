@@ -209,7 +209,6 @@ class SavedPlaylistManager {
             el.innerHTML = `
                 <div class="card-cover">
                     <img src="${p.cover}" loading="lazy" onerror="this.src='https://y.gtimg.cn/mediastyle/global/img/playlist_300.png'">
-                    <div class="play-overlay"><i class="fas fa-play"></i></div>
                 </div>
                 <div class="card-title" title="${p.name}">${p.name}</div>
                 <div class="card-info">${p.count}首</div>
@@ -968,7 +967,6 @@ class PlayerManager {
         this.ui.renderPlaylist(this.queue, this.currentIndex);
         this.playFromQueue(0);
         this.ui.notify(`已播放歌单，共 ${newQueue.length} 首`);
-        this.ui.switchPage('queue');
     }
 
     playFromQueue(index) {

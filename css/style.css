@@ -1149,6 +1149,14 @@ body.playing .bg-layer {
 /* Make now-playing clickable */
 .now-playing {
     cursor: pointer;
+    padding: 8px;
+    margin: -8px;
+    border-radius: var(--border-radius);
+    transition: background 0.2s ease;
+}
+
+.now-playing:hover {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 /* 沉浸式播放页控制按钮 */
