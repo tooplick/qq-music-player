@@ -1050,32 +1050,22 @@ body.playing .bg-layer {
 }
 
 .lyrics-toggle-btn {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.8);
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    padding: 8px 12px;
     transition: all 0.2s ease;
 }
 
 .lyrics-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
     color: #fff;
-    transform: scale(1.1);
 }
 
 .lyrics-toggle-btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    color: var(--accent);
 }
 
 /* Lyric Sub-text (trans/roma) */
@@ -1088,6 +1078,10 @@ body.playing .bg-layer {
 
 .lyric-line.show-sub .lyric-sub {
     display: block;
+}
+
+.lyric-line.active .lyric-sub {
+    color: rgba(255, 255, 255, 0.7);
 }
 
 .immersive-controls {
