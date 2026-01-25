@@ -217,16 +217,14 @@ class SavedPlaylistManager {
 
             el.onclick = (e) => {
                 if (e.target.closest('.delete-btn')) return;
-                if (confirm(`播放歌单 "${p.name}"?`)) {
-                    window.player.replaceQueue(p.songs);
-                }
+                // Show Detail Page instead of playing immediately
+                window.ui.showPlaylistDetail(p);
             };
 
             el.querySelector('.delete-btn').onclick = (e) => {
                 e.stopPropagation();
-                if (confirm('确定删除此歌单吗?')) {
-                    this.deletePlaylist(p.id);
-                }
+                // Direct delete without confirmation
+                this.deletePlaylist(p.id);
             };
 
             container.appendChild(el);
@@ -283,7 +281,16 @@ class UIManager {
             lyricsScroll: document.getElementById('lyrics-scroll'),
 
             // Notifications
-            notificationContainer: document.getElementById('notification-container')
+            notificationContainer: document.getElementById('notification-container'),
+
+            // Detail Page
+            detailPage: document.getElementById('detail-page'),
+            detailBackBtn: document.getElementById('detail-back-btn'),
+            detailCoverImg: document.getElementById('detail-cover-img'),
+            detailTitle: document.getElementById('detail-title'),
+            detailMeta: document.getElementById('detail-meta'),
+            detailPlayAll: document.getElementById('detail-play-all'),
+            detailList: document.getElementById('detail-list')
         };
 
         this.activeBgLayer = 1;
@@ -335,6 +342,29 @@ class UIManager {
         } else if (pageName === 'history') {
             window.historyManager.render();
         }
+    }
+
+    showPlaylistDetail(playlist) {
+        this.switchPage('detail');
+
+        const cover = playlist.cover || 'https://y.gtimg.cn/mediastyle/global/img/playlist_300.png';
+        const count = playlist.songs ? playlist.songs.length : playlist.count;
+
+        this.els.detailCoverImg.src = cover;
+        this.els.detailTitle.textContent = playlist.name;
+        this.els.detailMeta.textContent = `${count}首歌曲`;
+
+        // Play All Action
+        this.els.detailPlayAll.onclick = () => {
+            if (playlist.songs && playlist.songs.length > 0) {
+                window.player.replaceQueue(playlist.songs);
+            } else {
+                this.notify('歌单为空', 'info');
+            }
+        };
+
+        // Render List
+        this.renderPlaylist(playlist.songs || [], -1, 'detail-list');
     }
 
     showLoading(show) {
@@ -1330,6 +1360,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.target === modal) modal.classList.remove('active');
     };
 
+    // Detail Page Back
+    document.getElementById('detail-back-btn').onclick = () => {
+        ui.switchPage('playlist');
+    };
+
 
 
 
@@ -1367,7 +1402,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const div = document.createElement('div');
                 div.className = 'select-item';
                 div.dataset.index = index; // Use index to lookup
-                const cover = p.cover || p.dirPic || p.pic || 'https://y.gtimg.cn/mediastyle/global/img/playlist_300.png';
+
+                // Cover Priority: bigpicUrl > picUrl > dirPic > pic > cover > default
+                // Ensure HTTPS
+                let coverUrl = p.bigpicUrl || p.picUrl || p.dirPic || p.pic || p.cover || '';
+                if (coverUrl) {
+                    coverUrl = coverUrl.replace(/^http:\/\//, 'https://');
+                } else {
+                    coverUrl = 'https://y.gtimg.cn/mediastyle/global/img/playlist_300.png';
+                }
+
+                // Update object for later import
+                p.cover = coverUrl;
 
                 div.innerHTML = `
                     <div class="selection-check"></div>
