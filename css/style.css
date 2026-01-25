@@ -1179,3 +1179,163 @@ body.playing .bg-layer {
 .immersive-next {
     right: 0;
 }
+
+/* ============================================
+   Playlist Manager Styles
+   ============================================ */
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.header-action {
+    background: var(--bg-card);
+    border: none;
+    color: var(--text-secondary);
+    min-width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.header-action:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.playlist-section {
+    margin-bottom: 32px;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-primary);
+    padding-left: 4px;
+    border-left: 4px solid var(--accent);
+    line-height: 1.2;
+}
+
+.section-title button {
+    font-size: 14px;
+}
+
+.saved-playlists {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+}
+
+.playlist-card {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    border: 1px solid transparent;
+}
+
+.playlist-card:hover {
+    background: var(--bg-hover);
+    transform: translateY(-4px);
+    border-color: var(--border-color);
+}
+
+.playlist-card .card-cover {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    position: relative;
+}
+
+.playlist-card .card-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.playlist-card:hover .card-cover img {
+    transform: scale(1.05);
+}
+
+.playlist-card .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.playlist-card .card-info {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.playlist-card .delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    border: none;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.playlist-card:hover .delete-btn {
+    display: flex;
+}
+
+.playlist-card .delete-btn:hover {
+    background: #ff4444;
+}
+
+.clear-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 8px;
+    transition: color 0.2s;
+}
+
+.clear-btn:hover {
+    color: #ff4444;
+}
+
+.empty-hint {
+    color: var(--text-tertiary);
+    font-size: 14px;
+    padding: 20px 0;
+    text-align: center;
+    grid-column: 1 / -1;
+}
+
+/* History Page Specifics */
+.history-page .song-item {
+    opacity: 0.9;
+}

@@ -8,6 +8,7 @@ import { getSongUrlWithFallback } from './api/song.js';
 import { getCredential } from './api/credential.js';
 import { checkExpired, refreshCredential } from './api/login.js';
 import { getLyric } from './api/lyric.js';
+import { getSongListDetail } from './api/songlist.js';
 import { getValidCoverUrl, getCoverUrlSync, getCoverCandidates, DEFAULT_COVER } from './utils/cover.js';
 
 // Utility functions
@@ -24,6 +25,181 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
+}
+
+
+// History Manager
+class HistoryManager {
+    constructor(ui) {
+        this.ui = ui;
+        this.history = [];
+        this.MAX_HISTORY = 100;
+        this.load();
+    }
+
+    load() {
+        try {
+            const saved = localStorage.getItem('qqmusic_history');
+            if (saved) {
+                this.history = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.warn('Failed to load history', e);
+        }
+    }
+
+    save() {
+        try {
+            localStorage.setItem('qqmusic_history', JSON.stringify(this.history));
+        } catch (e) {
+            console.warn('Failed to save history', e);
+        }
+    }
+
+    add(song) {
+        // Remove duplicates (move to top)
+        this.history = this.history.filter(s => s.mid !== song.mid);
+        this.history.unshift(song);
+
+        if (this.history.length > this.MAX_HISTORY) {
+            this.history.pop();
+        }
+
+        this.save();
+        if (this.ui.currentPage === 'history') {
+            this.render();
+        }
+    }
+
+    clear() {
+        this.history = [];
+        this.save();
+        this.render();
+    }
+
+    render() {
+        // Reuse renderPlaylist logic with custom container
+        // We pass -1 as currentIndex so nothing highlighter unless playing?
+        // Actually history doesn't need highlight active
+        this.ui.renderPlaylist(this.history, -1, 'history-list', true);
+    }
+}
+
+// Saved Playlist Manager
+class SavedPlaylistManager {
+    constructor(ui) {
+        this.ui = ui;
+        this.playlists = [];
+        this.load();
+    }
+
+    load() {
+        try {
+            const saved = localStorage.getItem('qqmusic_saved_playlists');
+            if (saved) {
+                this.playlists = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.warn('Failed to load saved playlists', e);
+        }
+    }
+
+    save() {
+        localStorage.setItem('qqmusic_saved_playlists', JSON.stringify(this.playlists));
+    }
+
+    async importPlaylist(disstid) {
+        try {
+            this.ui.showLoading(true);
+            const data = await getSongListDetail(disstid);
+
+            const playlist = {
+                id: data.info.disstid || disstid,
+                name: data.info.dissname || 'Imported Playlist',
+                cover: data.info.logo || '',
+                songs: data.songs.map(s => this.normalizeSong(s)),
+                count: data.songs.length,
+                createTime: Date.now()
+            };
+
+            // Check if exists
+            const idx = this.playlists.findIndex(p => p.id == playlist.id);
+            if (idx !== -1) {
+                this.playlists[idx] = playlist; // Update
+            } else {
+                this.playlists.unshift(playlist);
+            }
+
+            this.save();
+            this.render();
+            this.ui.notify(`歌单导入成功: ${playlist.name}`);
+            return true;
+        } catch (e) {
+            console.error(e);
+            this.ui.notify('歌单导入失败: ' + e.message, 'error');
+            return false;
+        } finally {
+            this.ui.showLoading(false);
+        }
+    }
+
+    normalizeSong(s) {
+        // Convert API format to App format
+        return {
+            mid: s.mid || s.songmid,
+            name: s.name || s.songname,
+            singers: s.singer ? s.singer.map(singer => singer.name).join('/') : (s.singername || ''),
+            album: s.album ? { name: s.album.name, mid: s.album.mid } : { name: s.albumname, mid: s.albummid },
+            interval: s.interval,
+            vs: s.vs || []
+        };
+    }
+
+    deletePlaylist(id) {
+        this.playlists = this.playlists.filter(p => p.id != id);
+        this.save();
+        this.render();
+    }
+
+    render() {
+        const container = document.getElementById('saved-playlists');
+        if (!container) return;
+
+        if (this.playlists.length === 0) {
+            container.innerHTML = '<div class="empty-hint">暂无收藏歌单</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        this.playlists.forEach(p => {
+            const el = document.createElement('div');
+            el.className = 'playlist-card';
+            el.innerHTML = `
+                <div class="card-cover">
+                    <img src="${p.cover}" loading="lazy" onerror="this.src='https://y.gtimg.cn/mediastyle/global/img/playlist_300.png'">
+                </div>
+                <div class="card-title" title="${p.name}">${p.name}</div>
+                <div class="card-info">${p.count}首</div>
+                <button class="delete-btn" title="删除"><i class="fas fa-times"></i></button>
+            `;
+
+            el.onclick = (e) => {
+                if (e.target.closest('.delete-btn')) return;
+                if (confirm(`播放歌单 "${p.name}"?`)) {
+                    window.player.replaceQueue(p.songs);
+                }
+            };
+
+            el.querySelector('.delete-btn').onclick = (e) => {
+                e.stopPropagation();
+                if (confirm('确定删除此歌单吗?')) {
+                    this.deletePlaylist(p.id);
+                }
+            };
+
+            container.appendChild(el);
+        });
+    }
 }
 
 // UI Manager Class
@@ -50,6 +226,7 @@ class UIManager {
             // Pages
             searchPage: document.getElementById('search-page'),
             playlistPage: document.getElementById('playlist-page'),
+            historyPage: document.getElementById('history-page'),
 
             // Search
             searchInput: document.getElementById('search-input'),
@@ -59,7 +236,11 @@ class UIManager {
             pageInfo: document.getElementById('page-info'),
 
             // Playlist
-            playlistList: document.getElementById('playlist-list'),
+            playlistList: document.getElementById('playlist-list'), // Current Queue
+            savedPlaylists: document.getElementById('saved-playlists'), // Saved Playlists container
+
+            // History
+            historyList: document.getElementById('history-list'),
 
             // Immersive Player (只保留歌词)
             immersivePlayer: document.getElementById('immersive-player'),
@@ -85,6 +266,7 @@ class UIManager {
             btn.addEventListener('click', () => {
                 const page = btn.dataset.page;
                 this.switchPage(page);
+                // switch page logic handles this class toggle
             });
         });
     }
@@ -92,19 +274,35 @@ class UIManager {
     switchPage(pageName) {
         this.currentPage = pageName;
 
-        // 更新导航按钮状态
+        // Update nav
         document.querySelectorAll('.nav-item').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.page === pageName);
         });
 
-        // 切换页面显示
+        // Hide all pages
         document.querySelectorAll('.page').forEach(page => {
             page.classList.remove('active');
         });
 
+        // Show target page
         const targetPage = document.getElementById(`${pageName}-page`);
         if (targetPage) {
             targetPage.classList.add('active');
+        }
+
+        // Trigger render updates if needed
+        if (pageName === 'playlist') {
+            window.savedPlaylistManager.render();
+            // Queue is auto-rendered on change, but maybe good to re-render?
+        } else if (pageName === 'history') {
+            window.historyManager.render();
+        }
+    }
+
+    showLoading(show) {
+        // Implement simple loading overlay or toast
+        if (show) {
+            this.notify('正在加载...', 'info');
         }
     }
 
@@ -186,25 +384,27 @@ class UIManager {
         this.activeBgLayer = nextLayer;
     }
 
-    renderPlaylist(queue, currentIndex) {
-        if (!this.els.playlistList) return;
+    renderPlaylist(queue, currentIndex, containerId = 'playlist-list', isHistory = false) {
+        const container = document.getElementById(containerId) || this.els.playlistList;
+        if (!container) return;
 
         if (queue.length === 0) {
-            this.els.playlistList.innerHTML = `
+            const emptyText = isHistory ? '暂无播放记录' : '播放列表为空';
+            container.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-music"></i>
-                    <p>播放列表为空</p>
-                    <p class="hint">搜索歌曲并点击"+"添加</p>
+                    <p>${emptyText}</p>
                 </div>
             `;
             return;
         }
 
-        this.els.playlistList.innerHTML = '';
+        container.innerHTML = '';
+        const fragment = document.createDocumentFragment();
 
         queue.forEach((song, i) => {
             const cover = getCoverUrlSync(song, 300);
-            const isActive = i === currentIndex;
+            const isActive = !isHistory && i === currentIndex;
 
             const div = document.createElement('div');
             div.className = `song-item ${isActive ? 'active' : ''}`;
@@ -216,29 +416,41 @@ class UIManager {
                     <div class="item-title">${song.name}</div>
                     <div class="item-artist">${song.singers}</div>
                 </div>
+                ${!isHistory ? `
                 <div class="item-actions">
                     <button class="action-btn remove-btn" data-idx="${i}" title="移除">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
+                ` : ''}
             `;
 
             div.addEventListener('click', (e) => {
                 if (!e.target.closest('.remove-btn')) {
-                    window.player.playFromQueue(i);
+                    if (isHistory) {
+                        // Play from history: add to queue and play
+                        window.player.addToQueue(song);
+                        window.player.playFromQueue(window.player.queue.length - 1);
+                    } else {
+                        window.player.playFromQueue(i);
+                    }
                 }
             });
 
-            this.els.playlistList.appendChild(div);
+            fragment.appendChild(div);
         });
 
-        this.els.playlistList.querySelectorAll('.remove-btn').forEach(btn => {
-            btn.onclick = (e) => {
-                e.stopPropagation();
-                const idx = parseInt(btn.dataset.idx);
-                window.player.removeFromQueue(idx);
-            };
-        });
+        container.appendChild(fragment);
+
+        if (!isHistory) {
+            container.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const idx = parseInt(btn.dataset.idx);
+                    window.player.removeFromQueue(idx);
+                };
+            });
+        }
     }
 
     // ========== 沉浸式播放页 ==========
@@ -557,6 +769,11 @@ class PlayerManager {
         try {
             this.ui.updateSongInfo(song);
 
+            // Add to history
+            if (window.historyManager) {
+                window.historyManager.add(song);
+            }
+
             // Get playURL
             const preferFlac = document.getElementById('quality-value')?.value === 'flac';
             const result = await getSongUrlWithFallback(song.mid, preferFlac);
@@ -639,6 +856,42 @@ class PlayerManager {
         if (!silent) {
             this.ui.notify(`已添加: ${song.name}`);
         }
+    }
+
+    addNext(song) {
+        // 检查是否已存在
+        const existingIndex = this.queue.findIndex(s => s.mid === song.mid);
+        if (existingIndex !== -1) {
+            this.queue.splice(existingIndex, 1);
+            if (existingIndex < this.currentIndex) {
+                this.currentIndex--;
+            }
+        }
+
+        if (this.currentIndex === -1) {
+            this.queue.push(song);
+            this.currentIndex = 0; // 如果是第一首，不自动播？
+        } else {
+            this.queue.splice(this.currentIndex + 1, 0, song);
+        }
+
+        this.saveQueue();
+        this.ui.renderPlaylist(this.queue, this.currentIndex);
+        this.ui.notify(`下一首播放: ${song.name}`);
+    }
+
+    saveQueue() {
+        localStorage.setItem('qqmusic_queue', JSON.stringify(this.queue));
+    }
+
+    replaceQueue(newQueue) {
+        this.queue = newQueue;
+        this.currentIndex = 0;
+        this.saveQueue();
+        this.ui.renderPlaylist(this.queue, this.currentIndex);
+        this.playFromQueue(0);
+        this.ui.notify(`已播放歌单，共 ${newQueue.length} 首`);
+        this.ui.switchPage('playlist');
     }
 
     playFromQueue(index) {
@@ -915,10 +1168,10 @@ class SearchManager {
                 window.player.playFromQueue(window.player.queue.length - 1);
             };
 
-            // 点击+添加到列表
+            // 点击+改为下一首播放
             item.querySelector('.add-action').onclick = (e) => {
                 e.stopPropagation();
-                window.player.addToQueue(songData);
+                window.player.addNext(songData);
             };
 
             this.ui.els.resultsList.appendChild(item);
@@ -947,6 +1200,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize managers
     const ui = new UIManager();
+    const historyManager = new HistoryManager(ui);
+    const savedPlaylistManager = new SavedPlaylistManager(ui);
+
+    // Attach to window
+    window.historyManager = historyManager;
+    window.savedPlaylistManager = savedPlaylistManager;
+
     const player = new PlayerManager(ui);
     const search = new SearchManager(ui);
 
@@ -1009,9 +1269,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('next-page').onclick = () => search.nextPage();
 
     // Playlist controls
-    document.getElementById('clear-playlist').onclick = () => {
+    document.getElementById('import-playlist-btn').onclick = () => {
+        const id = prompt('请输入QQ音乐歌单ID (数字):');
+        if (id) {
+            savedPlaylistManager.importPlaylist(id);
+        }
+    };
+
+    document.getElementById('clear-queue-btn').onclick = (e) => {
+        e.stopPropagation();
         if (confirm('确定要清空播放列表吗？')) {
             player.clearQueue();
+        }
+    };
+
+    document.getElementById('clear-history').onclick = () => {
+        if (confirm('确定要清空历史记录吗？')) {
+            historyManager.clear();
         }
     };
 

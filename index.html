@@ -52,7 +52,11 @@
                 </button>
                 <button class="nav-item" data-page="playlist">
                     <i class="fas fa-list-ul"></i>
-                    <span>播放列表</span>
+                    <span>歌单</span>
+                </button>
+                <button class="nav-item" data-page="history">
+                    <i class="fas fa-history"></i>
+                    <span>历史</span>
                 </button>
             </nav>
         </aside>
@@ -92,19 +96,53 @@
                 </div>
             </section>
 
-            <!-- 播放列表页 -->
+            <!-- 歌单管理页 -->
             <section class="page playlist-page" id="playlist-page">
                 <div class="page-header">
-                    <h1>播放列表</h1>
-                    <button class="header-action" id="clear-playlist" title="清空列表">
+                    <h1>我的歌单</h1>
+                    <div class="header-actions">
+                        <button class="header-action" id="import-playlist-btn" title="导入歌单">
+                            <i class="fas fa-plus"></i> <span style="font-size: 14px; margin-left:5px;">导入</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="playlist-section">
+                    <div class="section-title">收藏歌单</div>
+                    <div class="saved-playlists" id="saved-playlists">
+                        <!-- 动态生成 -->
+                        <div class="empty-hint">暂无收藏歌单</div>
+                    </div>
+                </div>
+
+                <div class="playlist-section queue-section">
+                    <div class="section-title">
+                        <span>当前播放</span>
+                        <button id="clear-queue-btn" class="clear-btn" title="清空列表">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                    <div class="playlist-content" id="playlist-list">
+                        <!-- 动态生成 -->
+                        <div class="empty-state">
+                            <p>列表为空</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 历史记录页 -->
+            <section class="page history-page" id="history-page">
+                <div class="page-header">
+                    <h1>播放历史</h1>
+                    <button class="header-action" id="clear-history" title="清空历史">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
-                <div class="playlist-content" id="playlist-list">
+                <div class="playlist-content" id="history-list">
                     <div class="empty-state">
-                        <i class="fas fa-music"></i>
-                        <p>播放列表为空</p>
-                        <p class="hint">搜索歌曲并点击"+"添加</p>
+                        <i class="fas fa-history"></i>
+                        <p>暂无播放记录</p>
                     </div>
                 </div>
             </section>
