@@ -1182,12 +1182,30 @@ body.playing .bg-layer {
         font-size: 14px;
     }
 
+    /* Mobile: Normal vertical scrolling lyrics, no rotation */
+    .lyrics-scroll {
+        perspective: none;
+        transform-style: flat;
+        padding: 40vh 16px;
+        overflow-y: auto;
+    }
+
     .lyric-line {
-        font-size: 14px;
+        font-size: 16px;
+        transform: none !important;
+        opacity: 0.5 !important;
+        visibility: visible !important;
+        position: relative;
+        text-align: center;
+        white-space: normal;
+        word-wrap: break-word;
+        padding: 8px 0;
     }
 
     .lyric-line.active {
-        font-size: 18px;
+        font-size: 20px;
+        opacity: 1 !important;
+        color: #fff;
     }
 
     .immersive-controls {
