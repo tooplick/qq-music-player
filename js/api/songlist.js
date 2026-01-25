@@ -38,4 +38,23 @@ export async function getSongListDetail(disstid) {
     throw new Error('Invalid playlist data');
 }
 
-export default { getSongListDetail };
+/**
+ * Get user created songlists
+ * @param {string|number} uin - User QQ Number
+ * @returns {Promise<Array>} - List of playlists
+ */
+export async function getUserSongLists(uin) {
+    const params = {
+        uin: String(uin)
+    };
+
+    const data = await apiRequest(
+        'music.musicasset.PlaylistBaseRead',
+        'GetPlaylistByUin',
+        params
+    );
+
+    return data.v_playlist || [];
+}
+
+export default { getSongListDetail, getUserSongLists };

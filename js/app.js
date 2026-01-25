@@ -8,7 +8,7 @@ import { getSongUrlWithFallback } from './api/song.js';
 import { getCredential } from './api/credential.js';
 import { checkExpired, refreshCredential } from './api/login.js';
 import { getLyric } from './api/lyric.js';
-import { getSongListDetail } from './api/songlist.js';
+import { getSongListDetail, getUserSongLists } from './api/songlist.js';
 import { getValidCoverUrl, getCoverUrlSync, getCoverCandidates, DEFAULT_COVER } from './utils/cover.js';
 
 // Utility functions
@@ -109,39 +109,58 @@ class SavedPlaylistManager {
     }
 
     async importPlaylist(disstid) {
-        try {
-            this.ui.showLoading(true);
-            const data = await getSongListDetail(disstid);
-
-            const playlist = {
-                id: data.info.disstid || disstid,
-                name: data.info.dissname || 'Imported Playlist',
-                cover: data.info.logo || '',
-                songs: data.songs.map(s => this.normalizeSong(s)),
-                count: data.songs.length,
-                createTime: Date.now()
-            };
-
-            // Check if exists
-            const idx = this.playlists.findIndex(p => p.id == playlist.id);
-            if (idx !== -1) {
-                this.playlists[idx] = playlist; // Update
-            } else {
-                this.playlists.unshift(playlist);
-            }
-
-            this.save();
-            this.render();
-            this.ui.notify(`歌单导入成功: ${playlist.name}`);
-            return true;
-        } catch (e) {
-            console.error(e);
-            this.ui.notify('歌单导入失败: ' + e.message, 'error');
-            return false;
-        } finally {
-            this.ui.showLoading(false);
-        }
+        return this.importPlaylists([disstid]);
     }
+
+    async importPlaylists(disstids) {
+        if (!disstids || disstids.length === 0) return;
+
+        this.ui.showLoading(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of disstids) {
+            try {
+                this.ui.notify(`正在导入: ${id}`, 'info');
+                const data = await getSongListDetail(id);
+
+                const playlist = {
+                    id: data.info.disstid || id,
+                    name: data.info.dissname || 'Imported Playlist',
+                    cover: data.info.logo || '',
+                    songs: data.songs.map(s => this.normalizeSong(s)),
+                    count: data.songs.length,
+                    createTime: Date.now()
+                };
+
+                // Check if exists
+                const idx = this.playlists.findIndex(p => p.id == playlist.id);
+                if (idx !== -1) {
+                    this.playlists[idx] = playlist; // Update
+                } else {
+                    this.playlists.unshift(playlist);
+                }
+                successCount++;
+            } catch (e) {
+                console.error(`Import failed for ${id}:`, e);
+                failCount++;
+            }
+        }
+
+        this.save();
+        this.render();
+        this.ui.showLoading(false);
+
+        if (successCount > 0) {
+            this.ui.notify(`成功导入 ${successCount} 个歌单${failCount > 0 ? `，失败 ${failCount} 个` : ''}`);
+        } else if (failCount > 0) {
+            this.ui.notify(`导入失败 ${failCount} 个歌单`, 'error');
+        }
+
+        return successCount > 0;
+    }
+
+
 
     normalizeSong(s) {
         // Convert API format to App format
@@ -1275,10 +1294,123 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('next-page').onclick = () => search.nextPage();
 
     // Playlist controls
+    const modal = document.getElementById('import-modal');
+    /*
     document.getElementById('import-playlist-btn').onclick = () => {
         const id = prompt('请输入QQ音乐歌单ID (数字):');
         if (id) {
             savedPlaylistManager.importPlaylist(id);
+        }
+    };
+    */
+
+    // Modal Logic
+    document.getElementById('import-playlist-btn').onclick = () => {
+        modal.classList.add('active');
+    };
+
+    document.getElementById('import-modal-close').onclick = () => {
+        modal.classList.remove('active');
+    };
+
+    modal.onclick = (e) => {
+        if (e.target === modal) modal.classList.remove('active');
+    };
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+        };
+    });
+
+    // Single Import
+    document.getElementById('import-single-confirm').onclick = async () => {
+        const input = document.getElementById('import-id-input');
+        const id = input.value.trim();
+        if (id) {
+            const success = await savedPlaylistManager.importPlaylist(id);
+            if (success) {
+                input.value = '';
+                modal.classList.remove('active');
+            }
+        }
+    };
+
+    // Bulk Import Logic
+    document.getElementById('fetch-user-playlists').onclick = async () => {
+        const input = document.getElementById('import-uid-input');
+        const uin = input.value.trim();
+        if (!uin) return;
+
+        const container = document.getElementById('import-list-container');
+        const actionArea = document.getElementById('bulk-import-actions');
+
+        container.innerHTML = '<div class="loading-state"><i class="fas fa-spinner fa-spin"></i><span>获取中...</span></div>';
+
+        try {
+            const playlists = await getUserSongLists(uin);
+
+            if (playlists.length === 0) {
+                container.innerHTML = '<div class="empty-hint">该用户没有公开的歌单</div>';
+                actionArea.style.display = 'none';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            // Render list
+            playlists.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'select-item';
+                div.dataset.tid = p.tid;
+                div.innerHTML = `
+                    <div class="selection-check"></div>
+                    <img src="${p.cover_url_medium}" loading="lazy">
+                    <div class="select-info">
+                        <div class="select-title" title="${p.title}">${p.title}</div>
+                        <div class="select-count">${p.song_cnt}首</div>
+                    </div>
+                `;
+
+                div.onclick = () => {
+                    div.classList.toggle('selected');
+                    updateSelectedCount();
+                };
+
+                container.appendChild(div);
+            });
+
+            actionArea.style.display = 'flex';
+            updateSelectedCount();
+
+        } catch (e) {
+            container.innerHTML = `<div class="empty-hint" style="color:#ff4444">获取失败: ${e.message}</div>`;
+        }
+    };
+
+    function updateSelectedCount() {
+        const count = document.querySelectorAll('.select-item.selected').length;
+        document.getElementById('selected-count').textContent = count;
+    }
+
+    document.getElementById('import-selected-confirm').onclick = async () => {
+        const selected = document.querySelectorAll('.select-item.selected');
+        const ids = Array.from(selected).map(el => el.dataset.tid);
+
+        if (ids.length > 0) {
+            const success = await savedPlaylistManager.importPlaylists(ids);
+            if (success) {
+                modal.classList.remove('active');
+                // Reset Selection
+                document.getElementById('import-list-container').innerHTML = '<div class="empty-hint">请输入QQ号并点击获取</div>';
+                document.getElementById('bulk-import-actions').style.display = 'none';
+            }
+        } else {
+            ui.notify('请至少选择一个歌单', 'info');
         }
     };
 
