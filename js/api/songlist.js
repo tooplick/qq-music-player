@@ -12,7 +12,13 @@ import { apiRequest } from './request.js';
 export async function getSongListDetail(disstid) {
     const params = {
         disstid: Number(disstid),
-        song_num: 150
+        dirid: 0,
+        tag: 1,
+        song_begin: 0,
+        song_num: 150,
+        userinfo: 1,
+        orderlist: 1,
+        onlysonglist: 0
     };
 
     const data = await apiRequest(
