@@ -1366,13 +1366,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             playlists.forEach(p => {
                 const div = document.createElement('div');
                 div.className = 'select-item';
-                div.dataset.tid = p.tid;
+                div.dataset.tid = p.tid || p.dirId || p.disstid;
+                const cover = p.cover || p.dirPic || p.pic || 'https://y.gtimg.cn/mediastyle/global/img/playlist_300.png';
+
                 div.innerHTML = `
                     <div class="selection-check"></div>
-                    <img src="${p.cover_url_medium}" loading="lazy">
+                    <img src="${cover}" loading="lazy" onerror="this.src='https://y.gtimg.cn/mediastyle/global/img/playlist_300.png'">
                     <div class="select-info">
-                        <div class="select-title" title="${p.title}">${p.title}</div>
-                        <div class="select-count">${p.song_cnt}首</div>
+                        <div class="select-title" title="${p.dirName}">${p.dirName}</div>
+                        <div class="select-count">${p.songNum}首</div>
                     </div>
                 `;
 
