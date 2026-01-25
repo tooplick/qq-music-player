@@ -573,11 +573,21 @@ class UIManager {
         // Parse lyrics
         const mainLines = this.parseLyrics(lyrics.lyric).filter(l => l.text);
         const transLines = lyrics.trans ? this.parseLyrics(lyrics.trans).filter(l => l.text) : [];
-        const romaLines = lyrics.roma ? this.parseLyrics(lyrics.roma).filter(l => l.text) : [];
 
-        // Store parsed trans/roma for lookup
-        this.transMap = new Map(transLines.map(l => [l.time, l.text]));
-        this.romaMap = new Map(romaLines.map(l => [l.time, l.text]));
+        // Roma might be in QRC format (word-by-word: [ms,dur]word) or LRC format
+        let romaLines = [];
+        if (lyrics.roma) {
+            // Detect format: QRC uses [digits,digits], LRC uses [mm:ss.ms]
+            if (/\[\d+,\d+\]/.test(lyrics.roma)) {
+                romaLines = this.parseQrcLyrics(lyrics.roma).filter(l => l.text);
+            } else {
+                romaLines = this.parseLyrics(lyrics.roma).filter(l => l.text);
+            }
+        }
+
+        // Store parsed trans/roma for lookup (use rounded time as key for better matching)
+        this.transMap = new Map(transLines.map(l => [Math.round(l.time * 100) / 100, l.text]));
+        this.romaMap = new Map(romaLines.map(l => [Math.round(l.time * 100) / 100, l.text]));
 
         // Determine what's available
         const hasTrans = transLines.length > 0;
@@ -633,9 +643,10 @@ class UIManager {
             // Sub text (trans or roma)
             const subSpan = document.createElement('div');
             subSpan.className = 'lyric-sub';
-            // Get matching sub-text by time
-            const transText = this.transMap.get(line.time) || '';
-            const romaText = this.romaMap.get(line.time) || '';
+            // Get matching sub-text by time (use rounded time for lookup)
+            const roundedTime = Math.round(line.time * 100) / 100;
+            const transText = this.transMap.get(roundedTime) || '';
+            const romaText = this.romaMap.get(roundedTime) || '';
             subSpan.dataset.trans = transText;
             subSpan.dataset.roma = romaText;
             subSpan.textContent = this.subTextType === 'trans' ? transText : romaText;
@@ -668,6 +679,44 @@ class UIManager {
             const time = minutes * 60 + seconds + ms / 1000;
             const text = match[4].trim();
             lines.push({ time, text });
+        }
+
+        return lines.sort((a, b) => a.time - b.time);
+    }
+
+    // Parse QRC word-by-word format: [startMs,durationMs]word
+    parseQrcLyrics(qrcText) {
+        if (!qrcText) return [];
+
+        const lines = [];
+        // Match lines that start with a timestamp pattern
+        const lineRegex = /\[(\d+),(\d+)\]/g;
+
+        // Split by newlines first
+        const rawLines = qrcText.split('\n');
+
+        for (const rawLine of rawLines) {
+            if (!rawLine.trim()) continue;
+
+            // Extract all [ms,dur]word pairs from this line
+            const wordRegex = /\[(\d+),(\d+)\]([^\[]*)/g;
+            let wordMatch;
+            let lineText = '';
+            let lineStartTime = null;
+
+            while ((wordMatch = wordRegex.exec(rawLine)) !== null) {
+                const startMs = parseInt(wordMatch[1]);
+                const word = wordMatch[3];
+
+                if (lineStartTime === null) {
+                    lineStartTime = startMs / 1000; // Convert to seconds
+                }
+                lineText += word;
+            }
+
+            if (lineText.trim() && lineStartTime !== null) {
+                lines.push({ time: lineStartTime, text: lineText.trim() });
+            }
         }
 
         return lines.sort((a, b) => a.time - b.time);
