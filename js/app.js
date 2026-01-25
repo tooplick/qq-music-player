@@ -545,12 +545,15 @@ class UIManager {
 
     renderLyrics(lyrics) {
         if (!lyrics || !lyrics.lyric) {
-            this.els.lyricsScroll.innerHTML = `
-                <div class="lyrics-placeholder">
-                    <i class="fas fa-music"></i>
-                    <p>暂无歌词</p>
-                </div>
-            `;
+            // Show "暂无歌词" as a single active lyric line
+            this.els.lyricsScroll.innerHTML = '';
+            const el = document.createElement('div');
+            el.className = 'lyric-line active';
+            el.textContent = '暂无歌词';
+            el.style.transform = 'rotate(-6deg)';
+            el.style.opacity = '1';
+            el.style.visibility = 'visible';
+            this.els.lyricsScroll.appendChild(el);
             this.currentLyrics = [];
             this.lyricElements = [];
             return;
@@ -562,12 +565,15 @@ class UIManager {
         this.currentLyrics = lines.filter(l => l.text);
 
         if (this.currentLyrics.length === 0) {
-            this.els.lyricsScroll.innerHTML = `
-                <div class="lyrics-placeholder">
-                    <i class="fas fa-music"></i>
-                    <p>暂无歌词</p>
-                </div>
-            `;
+            // Show "暂无歌词" as a single active lyric line
+            this.els.lyricsScroll.innerHTML = '';
+            const el = document.createElement('div');
+            el.className = 'lyric-line active';
+            el.textContent = '暂无歌词';
+            el.style.transform = 'rotate(-6deg)';
+            el.style.opacity = '1';
+            el.style.visibility = 'visible';
+            this.els.lyricsScroll.appendChild(el);
             this.lyricElements = [];
             return;
         }
