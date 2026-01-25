@@ -1613,45 +1613,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         player.next();
     };
 
-    // Lyrics toggle button
+    // Lyrics toggle button - single click cycles: off -> trans -> roma -> off
     document.getElementById('lyrics-toggle-btn').onclick = () => {
         const toggleBtn = document.getElementById('lyrics-toggle-btn');
-        const toggleLabel = document.getElementById('lyrics-toggle-label');
-        const subElements = document.querySelectorAll('.lyric-sub');
-
-        ui.showSubText = !ui.showSubText;
-        toggleBtn.classList.toggle('active', ui.showSubText);
-
-        // Toggle all lyric lines
-        document.querySelectorAll('.lyric-line').forEach(el => {
-            el.classList.toggle('show-sub', ui.showSubText);
-        });
-
-        // Cycle through modes: off -> trans -> roma -> off (if both available)
-        if (ui.showSubText && ui.transMap?.size > 0 && ui.romaMap?.size > 0) {
-            // If turning on, check if we should switch type
-            if (ui.subTextType === 'trans') {
-                toggleLabel.textContent = '译';
-            } else {
-                toggleLabel.textContent = '音';
-            }
-        }
-    };
-
-    // Double click toggle to switch between trans/roma
-    document.getElementById('lyrics-toggle-btn').ondblclick = () => {
         const toggleLabel = document.getElementById('lyrics-toggle-label');
         const hasTrans = ui.transMap?.size > 0;
         const hasRoma = ui.romaMap?.size > 0;
 
-        if (hasTrans && hasRoma) {
-            // Switch type
-            ui.subTextType = ui.subTextType === 'trans' ? 'roma' : 'trans';
-            toggleLabel.textContent = ui.subTextType === 'trans' ? '译' : '音';
+        // Determine current state and next state
+        // States: 'off' -> 'trans' -> 'roma' -> 'off' (skip unavailable)
+        let currentState = ui.showSubText ? ui.subTextType : 'off';
+        let nextState = 'off';
 
-            // Update sub-text content
+        if (currentState === 'off') {
+            nextState = hasTrans ? 'trans' : (hasRoma ? 'roma' : 'off');
+        } else if (currentState === 'trans') {
+            nextState = hasRoma ? 'roma' : 'off';
+        } else if (currentState === 'roma') {
+            nextState = 'off';
+        }
+
+        // Apply next state
+        if (nextState === 'off') {
+            ui.showSubText = false;
+            toggleBtn.classList.remove('active');
+            document.querySelectorAll('.lyric-line').forEach(el => {
+                el.classList.remove('show-sub');
+            });
+            // Reset label to default
+            toggleLabel.textContent = hasTrans ? '译' : '音';
+        } else {
+            ui.showSubText = true;
+            ui.subTextType = nextState;
+            toggleBtn.classList.add('active');
+            toggleLabel.textContent = nextState === 'trans' ? '译' : '音';
+
+            // Update sub-text content and show
             document.querySelectorAll('.lyric-sub').forEach(el => {
-                el.textContent = ui.subTextType === 'trans' ? el.dataset.trans : el.dataset.roma;
+                el.textContent = nextState === 'trans' ? el.dataset.trans : el.dataset.roma;
+            });
+            document.querySelectorAll('.lyric-line').forEach(el => {
+                el.classList.add('show-sub');
             });
         }
     };
