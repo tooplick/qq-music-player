@@ -431,9 +431,16 @@ class UIManager {
 
             // 计算滞后系数：距离越远，系数越小(响应越慢)
             const distance = Math.abs(targetOffset);
-            let lagFactor = Math.max(0.04, 0.2 - distance * 0.01);
+
+            // 夸张的弹性参数
+            // 中心 (distance 0): 0.6 (非常跟手)
+            // 边缘 (distance 10): 0.6 - 0.5 = 0.1 (非常拖曳)
+            // 边缘 (distance 15+): 0.03 (极度拖曳)
+            let lagFactor = Math.max(0.03, 0.6 - distance * 0.05);
+
             if (this.userScrolling) {
-                lagFactor = Math.max(0.1, 0.4 - distance * 0.01);
+                // 手动滚动时整体响应要快，但仍保留拖曳感
+                lagFactor = Math.max(0.1, 0.8 - distance * 0.04);
             }
 
             // 弹性更新
