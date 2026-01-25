@@ -585,9 +585,9 @@ class UIManager {
             }
         }
 
-        // Store parsed trans/roma for lookup (use rounded time as key for better matching)
-        this.transMap = new Map(transLines.map(l => [Math.round(l.time * 100) / 100, l.text]));
-        this.romaMap = new Map(romaLines.map(l => [Math.round(l.time * 100) / 100, l.text]));
+        // Store parsed trans/roma as sorted arrays for nearest-time matching
+        this.transLines = transLines;
+        this.romaLines = romaLines;
 
         // Determine what's available
         const hasTrans = transLines.length > 0;
@@ -640,13 +640,11 @@ class UIManager {
             mainSpan.textContent = line.text;
             el.appendChild(mainSpan);
 
-            // Sub text (trans or roma)
+            // Sub text (trans or roma) - use nearest time matching
             const subSpan = document.createElement('div');
             subSpan.className = 'lyric-sub';
-            // Get matching sub-text by time (use rounded time for lookup)
-            const roundedTime = Math.round(line.time * 100) / 100;
-            const transText = this.transMap.get(roundedTime) || '';
-            const romaText = this.romaMap.get(roundedTime) || '';
+            const transText = this.findNearestLyric(this.transLines, line.time, 1.0);
+            const romaText = this.findNearestLyric(this.romaLines, line.time, 1.0);
             subSpan.dataset.trans = transText;
             subSpan.dataset.roma = romaText;
             subSpan.textContent = this.subTextType === 'trans' ? transText : romaText;
@@ -684,13 +682,31 @@ class UIManager {
         return lines.sort((a, b) => a.time - b.time);
     }
 
-    // Parse QRC word-by-word format: [startMs,durationMs]word
+    // Find the nearest lyric line within a time threshold
+    findNearestLyric(linesArray, targetTime, threshold = 1.0) {
+        if (!linesArray || linesArray.length === 0) return '';
+
+        let bestMatch = null;
+        let bestDiff = Infinity;
+
+        for (const line of linesArray) {
+            const diff = Math.abs(line.time - targetTime);
+            if (diff < bestDiff && diff <= threshold) {
+                bestDiff = diff;
+                bestMatch = line;
+            }
+            // Early exit if we've passed the target time by more than threshold
+            if (line.time > targetTime + threshold) break;
+        }
+
+        return bestMatch ? bestMatch.text : '';
+    }
+
+    // Parse QRC word-by-word format: [startMs,durationMs]word or word(startMs,durationMs)
     parseQrcLyrics(qrcText) {
         if (!qrcText) return [];
 
         const lines = [];
-        // Match lines that start with a timestamp pattern
-        const lineRegex = /\[(\d+),(\d+)\]/g;
 
         // Split by newlines first
         const rawLines = qrcText.split('\n');
@@ -706,7 +722,10 @@ class UIManager {
 
             while ((wordMatch = wordRegex.exec(rawLine)) !== null) {
                 const startMs = parseInt(wordMatch[1]);
-                const word = wordMatch[3];
+                let word = wordMatch[3];
+
+                // Remove any (ms,dur) timestamps from word text
+                word = word.replace(/\(\d+,\d+\)/g, '');
 
                 if (lineStartTime === null) {
                     lineStartTime = startMs / 1000; // Convert to seconds
