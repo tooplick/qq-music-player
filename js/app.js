@@ -218,7 +218,7 @@ class SavedPlaylistManager {
             el.onclick = (e) => {
                 if (e.target.closest('.delete-btn')) return;
                 // Show Detail Page instead of playing immediately
-                window.ui.showPlaylistDetail(p);
+                this.ui.showPlaylistDetail(p);
             };
 
             el.querySelector('.delete-btn').onclick = (e) => {
