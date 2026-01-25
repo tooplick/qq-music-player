@@ -1202,6 +1202,32 @@ body.playing .bg-layer {
         width: 56px;
         height: 56px;
     }
+
+    /* Lyrics sub-text mobile */
+    .lyric-sub {
+        font-size: 12px;
+    }
+
+    /* Toggle button always visible on mobile (no hover) */
+    .lyrics-toggle-container {
+        opacity: 1;
+        bottom: 60px;
+        right: 20px;
+        padding: 20px;
+        margin: -20px;
+    }
+
+    /* Larger touch targets */
+    .immersive-close,
+    .immersive-nav {
+        opacity: 0.6;
+        padding: 20px;
+    }
+
+    /* Progress bar larger for touch */
+    .immersive-progress-bar {
+        height: 8px;
+    }
 }
 
 /* Make now-playing clickable */
