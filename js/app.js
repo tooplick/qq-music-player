@@ -151,7 +151,7 @@ class SavedPlaylistManager {
                 if (idx !== -1) {
                     this.playlists[idx] = playlist; // Update
                 } else {
-                    this.playlists.unshift(playlist);
+                    this.playlists.push(playlist);
                 }
                 successCount++;
             } catch (e) {
@@ -348,6 +348,9 @@ class UIManager {
     showPlaylistDetail(playlist) {
         this.switchPage('detail');
 
+        // Store current playlist reference for click handlers
+        this.currentDetailPlaylist = playlist;
+
         const cover = playlist.cover || 'https://y.gtimg.cn/mediastyle/global/img/playlist_300.png';
         const count = playlist.songs ? playlist.songs.length : playlist.count;
 
@@ -364,8 +367,8 @@ class UIManager {
             }
         };
 
-        // Render List
-        this.renderPlaylist(playlist.songs || [], -1, 'detail-list');
+        // Render List with special flag for detail page
+        this.renderPlaylist(playlist.songs || [], -1, 'detail-list', false, true);
     }
 
     showLoading(show) {
@@ -453,7 +456,7 @@ class UIManager {
         this.activeBgLayer = nextLayer;
     }
 
-    renderPlaylist(queue, currentIndex, containerId = 'playlist-list', isHistory = false) {
+    renderPlaylist(queue, currentIndex, containerId = 'playlist-list', isHistory = false, isDetailPage = false) {
         const container = document.getElementById(containerId) || this.els.playlistList;
         if (!container) return;
 
@@ -473,7 +476,7 @@ class UIManager {
 
         queue.forEach((song, i) => {
             const cover = getCoverUrlSync(song, 300);
-            const isActive = !isHistory && i === currentIndex;
+            const isActive = !isHistory && !isDetailPage && i === currentIndex;
 
             const div = document.createElement('div');
             div.className = `song-item ${isActive ? 'active' : ''}`;
@@ -485,7 +488,7 @@ class UIManager {
                     <div class="item-title">${song.name}</div>
                     <div class="item-artist">${song.singers}</div>
                 </div>
-                ${!isHistory ? `
+                ${!isHistory && !isDetailPage ? `
                 <div class="item-actions">
                     <button class="action-btn remove-btn" data-idx="${i}" title="移除">
                         <i class="fas fa-times"></i>
@@ -500,6 +503,11 @@ class UIManager {
                         // Play from history: add to queue and play
                         window.player.addToQueue(song);
                         window.player.playFromQueue(window.player.queue.length - 1);
+                    } else if (isDetailPage) {
+                        // Play from detail page: replace queue with playlist songs and play from index
+                        const playlistSongs = this.currentDetailPlaylist?.songs || queue;
+                        window.player.replaceQueue(playlistSongs);
+                        window.player.playFromQueue(i);
                     } else {
                         window.player.playFromQueue(i);
                     }
@@ -511,7 +519,7 @@ class UIManager {
 
         container.appendChild(fragment);
 
-        if (!isHistory) {
+        if (!isHistory && !isDetailPage) {
             container.querySelectorAll('.remove-btn').forEach(btn => {
                 btn.onclick = (e) => {
                     e.stopPropagation();
