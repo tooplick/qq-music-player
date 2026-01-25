@@ -424,32 +424,42 @@ class UIManager {
 
             const targetAngle = targetOffset * angleStep;
 
-            // 初始化状态
+            // 初始化物理状态
             if (el._currentRotation === undefined) {
                 el._currentRotation = targetAngle;
+                el._velocity = 0;
             }
 
-            // 计算滞后系数：距离越远，系数越小(响应越慢)
+            // 计算弹簧物理参数
             const distance = Math.abs(targetOffset);
 
-            // 夸张的弹性参数
-            // 中心 (distance 0): 0.6 (非常跟手)
-            // 边缘 (distance 10): 0.6 - 0.5 = 0.1 (非常拖曳)
-            // 边缘 (distance 15+): 0.03 (极度拖曳)
-            let lagFactor = Math.max(0.03, 0.6 - distance * 0.05);
+            // 刚度 (Stiffness): 决定回弹力度。中心硬，边缘软。
+            // 边缘刚度 (0.005) 极低，这意味着它们会非常不愿意移动，一旦移动又会晃动
+            let stiffness = Math.max(0.005, 0.1 - distance * 0.01);
+
+            // 阻尼 (Damping): 0.9 保留惯性
+            let damping = 0.85;
 
             if (this.userScrolling) {
-                // 手动滚动时整体响应要快，但仍保留拖曳感
-                lagFactor = Math.max(0.1, 0.8 - distance * 0.04);
+                stiffness = Math.max(0.02, 0.2 - distance * 0.02);
+                damping = 0.8;
             }
 
-            // 弹性更新
-            const angleDiff = targetAngle - el._currentRotation;
-            if (Math.abs(angleDiff) > 0.01) {
-                el._currentRotation += angleDiff * lagFactor;
-            } else {
+            // 弹簧物理公式: F = -k * x
+            const displacement = targetAngle - el._currentRotation;
+            const force = displacement * stiffness;
+
+            // v = v + a (mass=1 so a=f)
+            el._velocity = (el._velocity + force) * damping;
+
+            // 停止阈值
+            if (Math.abs(el._velocity) < 0.001 && Math.abs(displacement) < 0.001) {
+                el._velocity = 0;
                 el._currentRotation = targetAngle;
+            } else {
+                el._currentRotation += el._velocity;
             }
+
 
             const currentAngle = el._currentRotation;
             // 透明度基于视觉位置 - 增强连带感
