@@ -1417,7 +1417,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 div.innerHTML = `
                     <div class="selection-check"></div>
-                    <img src="${cover}" loading="lazy" onerror="this.src='https://y.gtimg.cn/mediastyle/global/img/playlist_300.png'">
+                    <img src="${coverUrl}" loading="lazy" onerror="this.src='https://y.gtimg.cn/mediastyle/global/img/playlist_300.png'">
                     <div class="select-info">
                         <div class="select-title" title="${p.dirName}">${p.dirName}</div>
                         <div class="select-count">${p.songNum}首</div>
