@@ -1347,7 +1347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (qualityValue.value === 'flac') {
             qualityValue.value = 'mp3';
-            qualityLabel.textContent = '320K';
+            qualityLabel.textContent = 'MP3';
         } else {
             qualityValue.value = 'flac';
             qualityLabel.textContent = 'FLAC';

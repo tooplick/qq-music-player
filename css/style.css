@@ -688,6 +688,11 @@ body.playing .bg-layer {
 
 .quality-btn:hover {
     background: var(--bg-hover);
+    transform: none;
+}
+
+.quality-btn:active {
+    transform: none;
 }
 
 /* ============================================
