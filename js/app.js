@@ -1300,6 +1300,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('next-btn').onclick = () => player.next();
     document.getElementById('mode-btn').onclick = () => player.toggleMode();
 
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Ignore if typing in input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        switch (e.code) {
+            case 'Space':
+                e.preventDefault();
+                player.togglePlay();
+                break;
+            case 'ArrowLeft':
+                if (e.ctrlKey || e.metaKey) {
+                    player.prev();
+                } else {
+                    // Seek backward 5s
+                    player.seek(Math.max(0, player.audio.currentTime - 5));
+                }
+                break;
+            case 'ArrowRight':
+                if (e.ctrlKey || e.metaKey) {
+                    player.next();
+                } else {
+                    // Seek forward 5s
+                    player.seek(Math.min(player.audio.duration || 0, player.audio.currentTime + 5));
+                }
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                player.audio.volume = Math.min(1, player.audio.volume + 0.1);
+                break;
+            case 'ArrowDown':
+                e.preventDefault();
+                player.audio.volume = Math.max(0, player.audio.volume - 0.1);
+                break;
+            case 'KeyM':
+                player.audio.muted = !player.audio.muted;
+                break;
+        }
+    });
+
     // Quality toggle
     document.getElementById('quality-toggle').onclick = () => {
         const qualityValue = document.getElementById('quality-value');
