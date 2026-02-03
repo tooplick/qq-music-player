@@ -15,14 +15,9 @@ const API_CONFIG = {
     enableSign: true
 };
 
-// Common request parameters
+// Common request parameters - 简化版，与 qq-music-api 保持一致
 const COMMON_DEFAULTS = {
-    ct: '11',
-    tmeAppID: 'qqmusic',
     format: 'json',
-    inCharset: 'utf-8',
-    outCharset: 'utf-8',
-    uid: '3931641530'
 };
 
 /**
@@ -47,12 +42,12 @@ export function getSearchId() {
 
 /**
  * Build common parameters for request
+ * 简化 comm 参数，避免多余字段导致 API 验证失败
  */
 function buildCommonParams(credential, extra = {}) {
     const common = {
         cv: API_CONFIG.versionCode,
         v: API_CONFIG.versionCode,
-        QIMEI36: "8888888888888888", // Fake QIMEI to match Python structure
         ...COMMON_DEFAULTS
     };
 
